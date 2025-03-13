@@ -1,0 +1,20 @@
+{
+    "template": "git@github.com:NCI-GDC/bio-python-template.git",
+    "commit": "baf2226bed9c364393971df5fb8ed3bdafa1c744",
+    "context": {
+      "cookiecutter": {
+        "full_name": "Linghao Song",
+        "email": "linghao@uchicago.edu",
+        "github_username": "sxwcasd",
+        "project_name": "fastqc_to_json",
+        "package_name": "fastqc_to_json",
+        "project_short_description": "fastqc_to_json",
+        "min_python_version": "3.9",
+        "github_repo": "https://github.com/NCI-GDC/fastqc_to_json",
+        "commit": "baf2226bed9c364393971df5fb8ed3bdafa1c744",
+        "_template": "git@github.com:NCI-GDC/bio-python-template.git"
+      }
+    },
+    "directory": null,
+    "checkout": null
+  }

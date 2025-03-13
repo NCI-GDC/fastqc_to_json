@@ -1,14 +1,32 @@
-FROM ubuntu:bionic-20180426
+ARG REGISTRY=docker.osdc.io/ncigdc
+ARG BASE_CONTAINER_VERSION=latest
 
-MAINTAINER Jeremiah H. Savage <jeremiahsavage@gmail.com>
+FROM ${REGISTRY}/python3.9-builder:${BASE_CONTAINER_VERSION} as builder
 
-ENV version 0.4
+COPY ./ /fastqc_to_json
 
-RUN apt-get update \
-    && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get install -y \
-       python3-pip \
-       sqlite3 \
-    && apt-get clean \
-    && pip3 install fastqc_to_json \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+WORKDIR /fastqc_to_json
+
+RUN pip install tox && tox -e build
+
+FROM ${REGISTRY}/python3.9:${BASE_CONTAINER_VERSION}
+
+LABEL org.opencontainers.image.title="fastqc_to_json" \
+      org.opencontainers.image.description="fastqc_to_json" \
+      org.opencontainers.image.source="https://github.com/NCI-GDC/fastqc_to_json" \
+      org.opencontainers.image.vendor="NCI GDC"
+
+COPY --from=builder /fastqc_to_json/dist/*.whl /fastqc_to_json/
+COPY requirements.txt /fastqc_to_json/
+
+WORKDIR /fastqc_to_json
+
+RUN pip install --no-deps -r requirements.txt \
+	&& pip install --no-deps *.whl \
+	&& rm -f *.whl requirements.txt
+
+USER app
+
+ENTRYPOINT ["fastqc_to_json"]
+
+CMD ["--help"]
