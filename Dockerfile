@@ -1,14 +1,25 @@
-FROM ubuntu:bionic-20180426
+ARG REGISTRY=docker.osdc.io
+ARG BASE_CONTAINER_VERSION=2.0.1
 
-MAINTAINER Jeremiah H. Savage <jeremiahsavage@gmail.com>
+FROM ${REGISTRY}/ncigdc/python3.11-builder:${BASE_CONTAINER_VERSION} as builder
 
-ENV version 0.4
+COPY ./ /opt
 
-RUN apt-get update \
-    && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get install -y \
-       python3-pip \
-       sqlite3 \
-    && apt-get clean \
-    && pip3 install fastqc_to_json \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+WORKDIR /opt
+
+RUN pip install tox && tox -e build
+
+FROM ${REGISTRY}/ncigdc/python3.11:${BASE_CONTAINER_VERSION}
+
+COPY --from=builder /opt/dist/*.whl /opt/
+COPY requirements.txt /opt/
+
+WORKDIR /opt
+
+RUN pip install --no-deps -r requirements.txt \
+	&& pip install --no-deps *.whl \
+	&& rm -f *.whl requirements.txt
+
+ENTRYPOINT ["fastqc_to_json"]
+
+CMD ["--help"]
