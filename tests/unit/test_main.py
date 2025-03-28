@@ -3,6 +3,7 @@
 import unittest
 
 from click.testing import CliRunner
+
 from fastqc_to_json import __main__ as MOD
 
 

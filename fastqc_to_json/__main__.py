@@ -8,12 +8,13 @@ import logging
 import sys
 
 import click
+
 from .main import main
 
 try:
     from fastqc_to_json import __version__
 except Exception:
-    __version__ = '0.0.0'
+    __version__ = "0.0.0"
 
 log = logging.getLogger(__name__)
 
