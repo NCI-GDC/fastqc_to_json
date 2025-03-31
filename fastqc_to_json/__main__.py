@@ -3,11 +3,8 @@
 Python Project Template Entrypoint Script
 """
 
-import datetime
 import logging
 import sys
-
-import click
 
 from .main import main
 

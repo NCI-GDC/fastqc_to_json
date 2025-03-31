@@ -4,10 +4,11 @@ import argparse
 import json
 import os
 import subprocess
+from typing import Any, Dict, List
 
 
-def db_to_json(result):
-    data = dict()
+def db_to_json(result: List) -> Dict[str, Any]:
+    data: Dict[str, Any] = dict()
     for line in result:
         if line == "":
             continue
@@ -39,7 +40,7 @@ def db_to_json(result):
     return data
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser("fastqc Basic Statistics to json")
 
     # Required flags.
@@ -54,15 +55,15 @@ def main():
     if sqlite_size == 0:
         cmd = ["touch", "fastqc.json"]
         output = subprocess.check_output(cmd, shell=False)
-        return
+        return 0
 
     # if data, then output populated json
     cmd = ["sqlite3", sqlite_path, '"select * from fastqc_data_Basic_Statistics;"']
     shell_cmd = " ".join(cmd)
-    output = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")
-    output_split = output.split("\n")
+    output = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")  # type: ignore
+    output_split = output.split("\n")  # type: ignore
     db_to_json(output_split)
-    return
+    return 0
 
 
 if __name__ == "__main__":
