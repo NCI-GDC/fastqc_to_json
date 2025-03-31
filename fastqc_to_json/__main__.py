@@ -24,7 +24,7 @@ logging.basicConfig(
 )
 
 
-def main() -> int:
+def _main() -> int:
     """Main Entrypoint."""
     exit_code = 0
     args = sys.argv
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     status_code = 0
     try:
-        status_code = main()
+        status_code = _main()
     except Exception as e:
         log.exception(e)
         sys.exit(1)
