@@ -36,7 +36,7 @@ def db_to_json(result):
 
     with open("fastqc.json", "w") as fp:
         json.dump(data, fp)
-    return
+    return data
 
 
 def main():
