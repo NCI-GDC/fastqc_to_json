@@ -3,11 +3,10 @@
 Python Project Template Entrypoint Script
 """
 
-import datetime
 import logging
 import sys
 
-import click
+from .main import main
 
 try:
     from fastqc_to_json import __version__
@@ -22,35 +21,7 @@ logging.basicConfig(
 )
 
 
-def run() -> int:
-    """Method for running script logic.
-
-    Accepts:
-        run_args (namespace): Collection of parsed arguments
-    Returns:
-        ret_code (int): Return code for sys.exit()
-    """
-
-    ret_val = 0
-
-    start_time = datetime.datetime.now()
-
-    log.info("Running process...")
-
-    # Log runtime info
-    end_time = datetime.datetime.now()
-    run_time = end_time - start_time
-    log.info("Run time: %d seconds", run_time.seconds)
-    return ret_val
-
-
-@click.command()
-@click.version_option(version=__version__)
-# Add new cli args, e.g.:
-# @click.option("--foo")
-# @click.option("--bar")
-# def main(foo: str, bar: int):
-def main() -> int:
+def _main() -> int:
     """Main Entrypoint."""
     exit_code = 0
     args = sys.argv
@@ -59,7 +30,7 @@ def main() -> int:
     log.info("Process called with %s", args)
 
     try:
-        exit_code = run()
+        exit_code = sys.exit(main())
     except Exception as e:
         log.exception(e)
         exit_code = 1
@@ -71,7 +42,7 @@ if __name__ == "__main__":
 
     status_code = 0
     try:
-        status_code = main()
+        status_code = _main()
     except Exception as e:
         log.exception(e)
         sys.exit(1)

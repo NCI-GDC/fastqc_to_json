@@ -1,6 +1,6 @@
 # fastqc_to_json
 
-Python Boilerplate contains all the boilerplate you need to create a Python package.
+fastqc_to_json
 
 ## Installation
 
@@ -12,7 +12,7 @@ pip install .
 
 * Clone this repository
 * Requirements:
-  * Python >= 3.11
+  * Python >= 3.9
   * Tox
 * `make venv` to create a virtualenv
 * `source .venv/bin/activate` to activate new virtualenv
