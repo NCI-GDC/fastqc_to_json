@@ -3,6 +3,10 @@ ARG BASE_CONTAINER_VERSION=latest
 
 FROM ${REGISTRY}/python3.9-builder:${BASE_CONTAINER_VERSION} as builder
 
+# Install necessary build dependencies including clang
+RUN dnf update --refresh -y && \
+    dnf install -y clang boost boost-devel gcc-c++ git make
+
 COPY ./ /fastqc_to_json
 
 WORKDIR /fastqc_to_json
