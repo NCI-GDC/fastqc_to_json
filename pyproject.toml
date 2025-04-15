@@ -28,6 +28,7 @@ build = [
   "setuptools_scm",
   "flit",
   "twine",
+  "clang"
 ]
 
 dev = [
