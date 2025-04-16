@@ -1,24 +1,35 @@
-ARG REGISTRY=docker.osdc.io
-ARG BASE_CONTAINER_VERSION=2.0.1
+ARG REGISTRY=docker.osdc.io/ncigdc
+ARG BASE_CONTAINER_VERSION=latest
 
 FROM ${REGISTRY}/ncigdc/python3.11-builder:${BASE_CONTAINER_VERSION} as builder
 
-COPY ./ /opt
+# Install necessary build dependencies including clang
+RUN dnf update --refresh -y && \
+    dnf install -y clang boost boost-devel gcc-c++ git make
 
-WORKDIR /opt
+COPY ./ /fastqc_to_json
+
+WORKDIR /fastqc_to_json
 
 RUN pip install tox && tox -e build
 
-FROM ${REGISTRY}/ncigdc/python3.11:${BASE_CONTAINER_VERSION}
+FROM ${REGISTRY}/ncigdc/python3.11-builder:${BASE_CONTAINER_VERSION}
 
-COPY --from=builder /opt/dist/*.whl /opt/
-COPY requirements.txt /opt/
+LABEL org.opencontainers.image.title="fastqc_to_json" \
+      org.opencontainers.image.description="fastqc_to_json" \
+      org.opencontainers.image.source="https://github.com/NCI-GDC/fastqc_to_json" \
+      org.opencontainers.image.vendor="NCI GDC"
 
-WORKDIR /opt
+COPY --from=builder /fastqc_to_json/dist/*.whl /fastqc_to_json/
+COPY requirements.txt /fastqc_to_json/
+
+WORKDIR /fastqc_to_json
 
 RUN pip install --no-deps -r requirements.txt \
 	&& pip install --no-deps *.whl \
 	&& rm -f *.whl requirements.txt
+
+USER app
 
 ENTRYPOINT ["fastqc_to_json"]
 
