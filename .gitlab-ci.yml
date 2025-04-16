@@ -15,6 +15,12 @@ variables:
  DOCKER_BUILDKIT: 1
  PIP_EXTRA_INDEX_URL: https://nexus.osdc.io/repository/pypi-all/simple
  DOCKER_BUILD_OPTS: "--build-arg PIP_EXTRA_INDEX_URL=https://nexus.osdc.io/repository/pypi-all/simple"
+ REPO_PY_VERSION: python3.11
+
+.python_versions:
+  parallel:
+    matrix:
+      - REPO_PY_VERSION: [python3.11]
 
 tox:
   image: ${BASE_CONTAINER_REGISTRY}/${REPO_PY_VERSION}-builder:${BASE_CONTAINER_VERSION}
@@ -23,11 +29,6 @@ tox:
 
 release:
   image: ${BASE_CONTAINER_REGISTRY}/${REPO_PY_VERSION}-builder:${BASE_CONTAINER_VERSION}
-
-.python_versions:
-  parallel:
-    matrix:
-      - REPO_PY_VERSION: [python3.11]
 
 docker_build:
   rules:
