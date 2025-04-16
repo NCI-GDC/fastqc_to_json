@@ -12,7 +12,7 @@ pip install .
 
 * Clone this repository
 * Requirements:
-  * Python >= 3.9
+  * Python >= 3.10
   * Tox
 * `make venv` to create a virtualenv
 * `source .venv/bin/activate` to activate new virtualenv
