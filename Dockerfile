@@ -1,7 +1,7 @@
 ARG REGISTRY=docker.osdc.io/ncigdc
 ARG BASE_CONTAINER_VERSION=latest
 
-FROM ${REGISTRY}/python3.10-builder:${BASE_CONTAINER_VERSION} as builder
+FROM ${REGISTRY}/python3.11-builder:${BASE_CONTAINER_VERSION} as builder
 
 # Install necessary build dependencies including clang
 RUN dnf update --refresh -y && \
@@ -13,7 +13,7 @@ WORKDIR /fastqc_to_json
 
 RUN pip install tox && tox -e build
 
-FROM ${REGISTRY}/python3.10:${BASE_CONTAINER_VERSION}
+FROM ${REGISTRY}/python3.11:${BASE_CONTAINER_VERSION}
 
 LABEL org.opencontainers.image.title="fastqc_to_json" \
       org.opencontainers.image.description="fastqc_to_json" \
