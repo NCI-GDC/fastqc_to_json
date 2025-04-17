@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import argparse
 import json
 import os
 import subprocess
@@ -47,7 +46,7 @@ def db_to_json(result: List) -> Dict[str, Any]:
     help=("fastqc Basic Statistics to json"),
 )
 @click.option("--sqlite_path", is_flag=True, help="path of sqlite file")
-def main(sqlite_path) -> int:
+def main(sqlite_path: str) -> int:
     # if no data, then output zero byte json file
     sqlite_size = os.path.getsize(sqlite_path)
     if sqlite_size == 0:
