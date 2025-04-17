@@ -4,7 +4,7 @@ import unittest
 
 from click.testing import CliRunner
 
-from fastqc_to_json.main import main as MOD
+from fastqc_to_json import main as MOD
 
 
 class ThisTestCase(unittest.TestCase):

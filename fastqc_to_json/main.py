@@ -6,6 +6,8 @@ import os
 import subprocess
 from typing import Any, Dict, List
 
+import click
+
 
 def db_to_json(result: List) -> Dict[str, Any]:
     data: Dict[str, Any] = dict()
@@ -40,16 +42,12 @@ def db_to_json(result: List) -> Dict[str, Any]:
     return data
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser("fastqc Basic Statistics to json")
-
-    # Required flags.
-    parser.add_argument("--sqlite_path", required=True)
-
-    # setup required parameters
-    args = parser.parse_args()
-    sqlite_path = args.sqlite_path
-
+@click.command(
+    context_settings=dict(help_option_names=["-h", "--help"]),
+    help=("fastqc Basic Statistics to json"),
+)
+@click.option("--sqlite_path", is_flag=True, help="path of sqlite file")
+def main(sqlite_path) -> int:
     # if no data, then output zero byte json file
     sqlite_size = os.path.getsize(sqlite_path)
     if sqlite_size == 0:
