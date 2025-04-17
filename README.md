@@ -1,6 +1,6 @@
 # fastqc_to_json
 
-Python Boilerplate contains all the boilerplate you need to create a Python package.
+Python Boilerplate contains all the boilerplate you need to create a Python package
 
 ## Installation
 
