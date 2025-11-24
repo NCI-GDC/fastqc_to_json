@@ -37,7 +37,7 @@ def db_to_json(result: List) -> Dict[str, Any]:
             data[filename][key] = int(value)
 
     with open("fastqc.json", "w") as fp:
-        json.dump(data, fp)
+        json.dump({}, fp)
     return data
 
 
