@@ -13,9 +13,9 @@ class ThisTestCase(unittest.TestCase):
         self.runner = CliRunner()
 
     def test_pass(self):
-#        result = self.runner.invoke(MOD.main)
-#        result = self.runner.invoke(MOD.main, ["--sqlite_path", "/tmp/fake.db"])
-#        self.assertEqual(result.exit_code, 0)
+        #        result = self.runner.invoke(MOD.main)
+        #        result = self.runner.invoke(MOD.main, ["--sqlite_path", "/tmp/fake.db"])
+        #        self.assertEqual(result.exit_code, 0)
 
         dummy_db = "/tmp/fake.db"
         with open(dummy_db, "w") as f:
