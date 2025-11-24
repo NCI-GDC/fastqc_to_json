@@ -45,7 +45,7 @@ def db_to_json(result: List) -> Dict[str, Any]:
     context_settings=dict(help_option_names=["-h", "--help"]),
     help=("fastqc Basic Statistics to json"),
 )
-@click.option("--sqlite_path", is_flag=True, help="path of sqlite file")
+@click.option("--sqlite_path", type=str, help="path of sqlite file")
 def main(sqlite_path: str) -> int:
     # if no data, then output zero byte json file
     sqlite_size = os.path.getsize(sqlite_path)
