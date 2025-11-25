@@ -8,58 +8,76 @@ from typing import Any, Dict, List
 import click
 
 
-def db_to_json(result: List) -> Dict[str, Any]:
-    data: Dict[str, Any] = dict()
+def db_to_json(result: List[str]) -> Dict[str, Any]:
+    """
+    Convert SQLite query output from FastQC Basic Statistics table into JSON.
+
+    Args:
+        result: List of strings, each string is a '|' delimited row from SQLite.
+
+    Returns:
+        Dictionary of filename -> statistics.
+    """
+    data: Dict[str, Any] = {}
+
     for line in result:
         if line == "":
             continue
+
         line_split = line.strip().split("|")
         key = line_split[3]
-        value = line_split[4]
+        value_str = line_split[4]  # always keep original string
+
         if key == "Filename":
-            filename = value
-            data[filename] = dict()
-        elif key == "File type":
-            data[filename][key] = value
-        elif key == "Encoding":
-            data[filename][key] = value
-        elif key == "Total Sequences":
-            data[filename][key] = int(value)
-        elif key == "Sequences flagged as poor quality":
-            data[filename][key] = int(value)
+            filename = value_str
+            data[filename] = {}
+        elif key in ["File type", "Encoding"]:
+            data[filename][key] = value_str
+        elif key in ["Total Sequences", "Sequences flagged as poor quality", "%GC"]:
+            data[filename][key] = int(value_str)
         elif key == "Sequence length":
-            if ("-") in value:
-                value_split = value.split("-")
-                value_int = [int(x) for x in value_split]
-                value = max(value_int)
-            data[filename][key] = int(value)
-        elif key == "%GC":
-            data[filename][key] = int(value)
+            if "-" in value_str:
+                min_len, max_len = map(int, value_str.split("-"))
+                data[filename][key] = max(min_len, max_len)
+            else:
+                data[filename][key] = int(value_str)
 
     with open("fastqc.json", "w") as fp:
         json.dump(data, fp)
+
     return data
 
 
 @click.command(
     context_settings=dict(help_option_names=["-h", "--help"]),
-    help=("fastqc Basic Statistics to json"),
+    help="fastqc Basic Statistics to json",
 )
-@click.option("--sqlite_path", help="path of sqlite file")
+@click.option(
+    "--sqlite_path",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    help="Path to the sqlite file",
+)
 def main(sqlite_path: str) -> int:
-    # if no data, then output zero byte json file
+    """
+    Convert a FastQC SQLite Basic Statistics table to JSON.
+    """
+
     sqlite_size = os.path.getsize(sqlite_path)
+
+    # Handle empty SQLite file
     if sqlite_size == 0:
-        cmd = ["touch", "fastqc.json"]
-        output = subprocess.check_output(cmd, shell=False)
+        # Use subprocess to mimic Script 1 behavior
+        subprocess.check_output(["touch", "fastqc.json"], shell=False)
         return 0
 
-    # if data, then output populated json
-    cmd = ["sqlite3", sqlite_path, '"select * from fastqc_data_Basic_Statistics;"']
+    # Handle non-empty SQLite file
+    cmd = ["sqlite3", sqlite_path, "select * from fastqc_data_Basic_Statistics;"]
     shell_cmd = " ".join(cmd)
-    output = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")  # type: ignore
-    output_split = output.split("\n")  # type: ignore
+    output = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")
+    output_split = output.split("\n")
     db_to_json(output_split)
+
     return 0
 
 
