@@ -1,74 +1,67 @@
 #!/usr/bin/env python
 
-import argparse
 import json
-import logging
 import os
 import subprocess
+from typing import Any, Dict, List
 
-log = logging.getLogger(__name__)
+import click
 
 
-def db_to_json(result_lines):
-    data = {}
-    filename = None
-
-    for line in result_lines:
-        if not line.strip():
+def db_to_json(result: List) -> Dict[str, Any]:
+    data: Dict[str, Any] = dict()
+    for line in result:
+        if line == "":
             continue
-
-        parts = line.strip().split("|")
-        if len(parts) < 5:
-            continue
-
-        _, _, _, key, value = parts
-
+        line_split = line.strip().split("|")
+        key = line_split[3]
+        value = line_split[4]
         if key == "Filename":
             filename = value
-            data[filename] = {}
-        elif filename is not None:
-            if key in ("File type", "Encoding"):
-                data[filename][key] = value
-            elif key in ("Total Sequences", "Sequences flagged as poor quality", "%GC"):
-                data[filename][key] = int(value)
-            elif key == "Sequence length":
-                if "-" in value:
-                    value = max(int(v) for v in value.split("-"))
-                data[filename][key] = int(value)
+            data[filename] = dict()
+        elif key == "File type":
+            data[filename][key] = value
+        elif key == "Encoding":
+            data[filename][key] = value
+        elif key == "Total Sequences":
+            data[filename][key] = int(value)
+        elif key == "Sequences flagged as poor quality":
+            data[filename][key] = int(value)
+        elif key == "Sequence length":
+            if ("-") in value:
+                value_split = value.split("-")
+                value_int = [int(x) for x in value_split]
+                value = max(value_int)
+            data[filename][key] = int(value)
+        elif key == "%GC":
+            data[filename][key] = int(value)
 
     with open("fastqc.json", "w") as fp:
         json.dump(data, fp)
+    return data
 
-    return
 
-
-def main() -> int:
-    """Main CLI logic. Returns exit code."""
-    parser = argparse.ArgumentParser("fastqc Basic Statistics to json")
-
-    parser.add_argument("--sqlite_path", required=True)
-
-    args = parser.parse_args()
-    sqlite_path = args.sqlite_path
-
-    # If file empty → create empty JSON
-    if os.path.getsize(sqlite_path) == 0:
-        open("fastqc.json", "w").close()
+@click.command(
+    context_settings=dict(help_option_names=["-h", "--help"]),
+    help=("fastqc Basic Statistics to json"),
+)
+@click.option("--sqlite_path", help="path of sqlite file")
+def main(sqlite_path: str) -> int:
+    # if no data, then output zero byte json file
+    sqlite_size = os.path.getsize(sqlite_path)
+    if sqlite_size == 0:
+        cmd = ["touch", "fastqc.json"]
+        output = subprocess.check_output(cmd, shell=False)
         return 0
 
-    # Run sqlite query
-    try:
-        output = subprocess.check_output(
-            ["sqlite3", sqlite_path, "select * from fastqc_data_Basic_Statistics;"],
-            text=True,
-        )
-    except subprocess.CalledProcessError as e:
-        log.error("SQLite query failed: %s", e)
-        return 1
-
-    db_to_json(output.splitlines())
+    # if data, then output populated json
+    cmd = ["sqlite3", sqlite_path, '"select * from fastqc_data_Basic_Statistics;"']
+    shell_cmd = " ".join(cmd)
+    output = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")  # type: ignore
+    output_split = output.split("\n")  # type: ignore
+    db_to_json(output_split)
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
