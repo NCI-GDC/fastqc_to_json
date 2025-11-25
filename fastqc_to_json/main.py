@@ -68,16 +68,17 @@ def main(sqlite_path: str) -> int:
     # Handle empty SQLite file
     if sqlite_size == 0:
         # Use subprocess to mimic Script 1 behavior
-        subprocess.check_output(["touch", "fastqc.json"], shell=False)
+        open("fastqc.json", "w").close()
         return 0
 
     # Handle non-empty SQLite file
-    cmd = ["sqlite3", sqlite_path, '"select * from fastqc_data_Basic_Statistics;"']
-    # shell_cmd = f'sqlite3 "{sqlite_path}" "select * from fastqc_data_Basic_Statistics;"'
-    #   shell_cmd = " ".join(cmd)
-    output = subprocess.check_output(cmd, shell=True).decode("utf-8")
-    output_split = output.split("\n")
-    db_to_json(output_split)
+    cmd = ["sqlite3", sqlite_path, "select * from fastqc_data_Basic_Statistics;"]
+
+    # MUST use shell=False
+    output = subprocess.check_output(cmd, shell=False).decode("utf-8")
+
+    rows = output.strip().split("\n")
+    db_to_json(rows)
 
     return 0
 
