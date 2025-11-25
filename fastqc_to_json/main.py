@@ -72,7 +72,7 @@ def main(sqlite_path: str) -> int:
         return 0
 
     # Handle non-empty SQLite file
-    cmd = ["sqlite3", sqlite_path, "select * from fastqc_data_Basic_Statistics;"]
+    cmd = ["sqlite3", sqlite_path, '"select * from fastqc_data_Basic_Statistics;"']
     shell_cmd = " ".join(cmd)
     output = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")
     output_split = output.split("\n")
