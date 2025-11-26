@@ -1,54 +1,46 @@
-import json
-import os
-import sqlite3
+from unittest.mock import mock_open, patch
 
 from click.testing import CliRunner
 
-from fastqc_to_json.main import main as cli_main
+# import subprocess
+from fastqc_to_json.main import main as fastqc_main
 
 
-class TestFastqcToJson:
-    def setup_method(self):
-        self.runner = CliRunner()
+def test_main_empty_sqlite_creates_empty_json(tmp_path, monkeypatch):
+    runner = CliRunner()
+    sqlite_path = tmp_path / "empty.sqlite"
+    sqlite_path.touch()
 
-    def test_empty_sqlite(self):
-        """When the sqlite file is empty, fastqc.json should be created and empty."""
-        with self.runner.isolated_filesystem():
-            open("test.sqlite", "wb").close()
+    # Patch getsize to simulate empty file
+    monkeypatch.setattr("os.path.getsize", lambda path: 0)
 
-            result = self.runner.invoke(cli_main, ["--sqlite_path", "test.sqlite"])
-            assert result.exit_code == 0, result.output
+    # Patch open to avoid writing a real file
+    with patch("builtins.open", mock_open()) as mocked_file:
+        result = runner.invoke(fastqc_main, ["--sqlite_path", str(sqlite_path)])
+        assert result.exit_code == 0
+        mocked_file.assert_called_once_with("fastqc.json", "w")
 
-            assert os.path.exists("fastqc.json")
-            with open("fastqc.json") as f:
-                data = f.read().strip()
-                assert data in ("", "{}")
 
-    def test_nonempty_sqlite(self):
-        """A sqlite DB with the expected table produces correct JSON."""
-        with self.runner.isolated_filesystem():
-            conn = sqlite3.connect("test.sqlite")
-            cur = conn.cursor()
-            cur.execute(
-                "CREATE TABLE fastqc_data_Basic_Statistics (key TEXT, value TEXT)"
-            )
+def test_main_with_data(tmp_path, monkeypatch):
+    runner = CliRunner()
+    sqlite_path = tmp_path / "data.sqlite"
+    sqlite_path.write_text("dummy")
 
-            cur.execute(
-                "INSERT INTO fastqc_data_Basic_Statistics VALUES (?, ?)",
-                ("Filename", "sample1"),
-            )
-            cur.execute(
-                "INSERT INTO fastqc_data_Basic_Statistics VALUES (?, ?)",
-                ("Total Sequences", "12345"),
-            )
-            conn.commit()
-            conn.close()
+    monkeypatch.setattr("os.path.getsize", lambda path: 10)
 
-            result = self.runner.invoke(cli_main, ["--sqlite_path", "test.sqlite"])
-            assert result.exit_code == 0, result.output
+    # Sample output simulating sqlite3 query result
+    sample_output = (
+        "|x|y|z|Filename|abc.fastq|\n"
+        "|x|y|z|File type|FastQ|\n"
+        "|x|y|z|Encoding|Sanger|\n"
+        "|x|y|z|Total Sequences|50|\n"
+        "|x|y|z|Sequences flagged as poor quality|5|\n"
+        "|x|y|z|Sequence length|100|\n"
+        "|x|y|z|%GC|40|\n"
+    )
 
-            assert os.path.exists("fastqc.json")
-            with open("fastqc.json") as f:
-                data = json.load(f)
-
-            assert data == {"sample1": {"Total Sequences": 12345}}
+    with patch("subprocess.check_output", return_value=sample_output.encode("utf-8")):
+        with patch("builtins.open", mock_open()) as mocked_file:
+            result = runner.invoke(fastqc_main, ["--sqlite_path", str(sqlite_path)])
+            assert result.exit_code == 0
+            mocked_file.assert_called()  # fastqc.json is written

@@ -2,9 +2,9 @@
 
 import json
 import os
-import sqlite3
 
-# import subprocess
+# import sqlite3
+import subprocess
 from typing import Any, Dict, List
 
 import click
@@ -49,29 +49,16 @@ def db_to_json(result: List) -> Dict[str, Any]:
 )
 @click.option("--sqlite_path", required=True, type=click.Path(exists=True))
 def main(sqlite_path: str) -> int:
-    """Convert FastQC sqlite DB to JSON."""
-
-    if os.path.getsize(sqlite_path) == 0:
-        open("fastqc.json", "wb").close()
+    # if no data, then output zero byte json file
+    sqlite_size = os.path.getsize(sqlite_path)
+    if sqlite_size == 0:
+        open("fastqc.json", "w").close()
         return 0
 
-    conn = sqlite3.connect(sqlite_path)
-    try:
-        rows = conn.execute("SELECT * FROM fastqc_data_Basic_Statistics").fetchall()
-    finally:
-        conn.close()
-
-    output_split = []
-    for row in rows:
-        # convert row to list of strings
-        parts = [str(c) for c in row]
-
-        # ensure at least 5 fields
-        while len(parts) < 5:
-            parts.insert(0, "")
-
-        output_split.append("|".join(parts[:5]))
-
+    # if data, then output populated json
+    cmd = ["sqlite3", sqlite_path, "select * from fastqc_data_Basic_Statistics;"]
+    output = subprocess.check_output(cmd, shell=False).decode("utf-8")
+    output_split = output.split("\n")
     db_to_json(output_split)
     return 0
 
