@@ -46,36 +46,26 @@ def db_to_json(result: List) -> Dict[str, Any]:
     context_settings=dict(help_option_names=["-h", "--help"]),
     help=("fastqc Basic Statistics to json"),
 )
-@click.command()
 @click.option("--sqlite_path", required=True, type=click.Path(exists=True))
 def main(sqlite_path):
     """Convert FastQC sqlite DB to JSON."""
 
     sqlite_size = os.path.getsize(sqlite_path)
 
-    # If empty DB, create empty JSON file
     if sqlite_size == 0:
         open("fastqc.json", "wb").close()
         return 0
 
-    # Read table using Python's sqlite3
     conn = sqlite3.connect(sqlite_path)
-    cur = conn.cursor()
-
     try:
-        rows = cur.execute("SELECT * FROM fastqc_data_Basic_Statistics;").fetchall()
-    except sqlite3.Error:
-        rows = []
+        rows = conn.execute("SELECT * FROM fastqc_data_Basic_Statistics").fetchall()
     finally:
         conn.close()
 
-    # Convert rows to strings like "key|value"
-    output_split = [f"{k}|{v}" for (k, v) in rows]
+    # 👇 Convert to 5-field format expected by db_to_json
+    output_split = [f"|||{k}|{v}" for k, v in rows]
 
-    # Write JSON
     db_to_json(output_split)
-
-    # Explicitly return 0 for Click
     return 0
 
 
