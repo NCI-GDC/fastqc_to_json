@@ -47,25 +47,27 @@ def db_to_json(result: List) -> Dict[str, Any]:
 )
 @click.option(
     "--sqlite_path",
-    required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True),
     help="path of sqlite file",
+    required=True,
+    type=click.Path(exists=True),
 )
-def main(sqlite_path: str) -> int:
-    # if no data, then output zero byte json file
-    sqlite_size = os.path.getsize(sqlite_path)
-    if sqlite_size == 0:
-        cmd = ["touch", "fastqc.json"]
-        output = subprocess.check_output(cmd, shell=False)
-        return 0
+def main(sqlite_path):
+    """Convert FastQC sqlite DB to JSON."""
 
-    # if data, then output populated json
-    cmd = ["sqlite3", sqlite_path, '"select * from fastqc_data_Basic_Statistics;"']
-    shell_cmd = " ".join(cmd)
-    output = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")  # type: ignore
-    output_split = output.split("\n")  # type: ignore
+    sqlite_size = os.path.getsize(sqlite_path)
+
+    # If empty DB, create empty JSON file
+    if sqlite_size == 0:
+        subprocess.check_call(["touch", "fastqc.json"])
+        return
+
+    # Extract data with sqlite3
+    query = "select * from fastqc_data_Basic_Statistics;"
+    cmd = f'sqlite3 "{sqlite_path}" "{query}"'
+    output = subprocess.check_output(cmd, shell=True).decode("utf-8")
+
+    output_split = output.split("\n")
     db_to_json(output_split)
-    return 0
 
 
 if __name__ == "__main__":
