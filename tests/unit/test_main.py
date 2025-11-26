@@ -12,8 +12,13 @@ class ThisTestCase(unittest.TestCase):
         self.runner = CliRunner()
 
     def test_pass(self):
-        result = self.runner.invoke(MOD.main)
-        self.assertEqual(result.exit_code, 0)
+        with self.runner.isolated_filesystem():
+            # create a dummy sqlite file
+            with open("empty.sqlite", "wb") as f:
+                pass
+
+            result = self.runner.invoke(MOD.main, ["--sqlite_path", "empty.sqlite"])
+            self.assertEqual(result.exit_code, 0)
 
 
 # __END__
