@@ -30,22 +30,23 @@ def _main() -> int:
     log.info("Process called with %s", args)
 
     try:
-        exit_code = sys.exit(main())
+        main()  # main() does not return anything
     except Exception as e:
         log.exception(e)
         exit_code = 1
+
     return exit_code
 
 
 if __name__ == "__main__":
     """CLI Entrypoint"""
 
-    status_code = 0
     try:
         status_code = _main()
     except Exception as e:
         log.exception(e)
-        sys.exit(1)
+        status_code = 1
+
     sys.exit(status_code)
 
 

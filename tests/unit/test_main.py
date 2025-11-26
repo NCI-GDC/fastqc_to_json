@@ -1,46 +1,41 @@
-from unittest.mock import mock_open, patch
+import json
+import os
+import tempfile
 
-from click.testing import CliRunner
-
-# import subprocess
-from fastqc_to_json.main import main as fastqc_main
-
-
-def test_main_empty_sqlite_creates_empty_json(tmp_path, monkeypatch):
-    runner = CliRunner()
-    sqlite_path = tmp_path / "empty.sqlite"
-    sqlite_path.touch()
-
-    # Patch getsize to simulate empty file
-    monkeypatch.setattr("os.path.getsize", lambda path: 0)
-
-    # Patch open to avoid writing a real file
-    with patch("builtins.open", mock_open()) as mocked_file:
-        result = runner.invoke(fastqc_main, ["--sqlite_path", str(sqlite_path)])
-        assert result.exit_code == 0
-        mocked_file.assert_called_once_with("fastqc.json", "w")
+from fastqc_to_json.main import db_to_json
 
 
-def test_main_with_data(tmp_path, monkeypatch):
-    runner = CliRunner()
-    sqlite_path = tmp_path / "data.sqlite"
-    sqlite_path.write_text("dummy")
+def test_db_to_json_parses_fastqc_basic_stats():
+    sample_rows = [
+        "1|1|1|Filename|sample_1.fastq.gz",
+        "1|1|1|File type|Conventional base calls",
+        "1|1|1|Encoding|Sanger / Illumina 1.9",
+        "1|1|1|Total Sequences|123456",
+        "1|1|1|Sequences flagged as poor quality|12",
+        "1|1|1|Sequence length|101",
+        "1|1|1|%GC|45",
+    ]
 
-    monkeypatch.setattr("os.path.getsize", lambda path: 10)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+            db_to_json(sample_rows)
 
-    # Sample output simulating sqlite3 query result
-    sample_output = (
-        "|x|y|z|Filename|abc.fastq|\n"
-        "|x|y|z|File type|FastQ|\n"
-        "|x|y|z|Encoding|Sanger|\n"
-        "|x|y|z|Total Sequences|50|\n"
-        "|x|y|z|Sequences flagged as poor quality|5|\n"
-        "|x|y|z|Sequence length|100|\n"
-        "|x|y|z|%GC|40|\n"
-    )
+            assert os.path.exists("fastqc.json")
 
-    with patch("subprocess.check_output", return_value=sample_output.encode("utf-8")):
-        with patch("builtins.open", mock_open()) as mocked_file:
-            result = runner.invoke(fastqc_main, ["--sqlite_path", str(sqlite_path)])
-            assert result.exit_code == 0
-            mocked_file.assert_called()  # fastqc.json is written
+            with open("fastqc.json") as fp:
+                data = json.load(fp)
+
+            assert "sample_1.fastq.gz" in data
+            stats = data["sample_1.fastq.gz"]
+
+            assert stats["File type"] == "Conventional base calls"
+            assert stats["Encoding"] == "Sanger / Illumina 1.9"
+            assert stats["Total Sequences"] == 123456
+            assert stats["Sequences flagged as poor quality"] == 12
+            assert stats["Sequence length"] == 101
+            assert stats["%GC"] == 45
+
+        finally:
+            os.chdir(cwd)

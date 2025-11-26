@@ -1,102 +1,71 @@
 #!/usr/bin/env python
 
+import argparse
 import json
 import os
 import subprocess
-from typing import Any, Dict, List
-
-import click
+from typing import Dict, List, Optional, Union
 
 
-def db_to_json(result: List[str]) -> Dict[str, Any]:
-    """
-    Convert FastQC Basic Statistics output from SQLite into a JSON dictionary.
-
-    Args:
-        result: List of strings, each representing a row from
-                'fastqc_data_Basic_Statistics', with '|' separators.
-
-    Returns:
-        Dictionary with filename as key and stats as nested dict.
-    """
-    data: Dict[str, Any] = {}
-    filename: str = ""
+def db_to_json(result: List[str]) -> None:
+    data: Dict[str, Dict[str, Union[int, str]]] = dict()
+    filename: Optional[str] = None
 
     for line in result:
-        line = line.strip()
-        if not line:
+        if line == "":
             continue
 
-        line_split = line.split("|")
-        if len(line_split) < 5:
-            continue  # skip malformed lines
+        parts = line.strip().split("|")
+        if len(parts) < 5:
+            continue
 
-        key = line_split[3].strip()
-        value: Any = line_split[4].strip()
+        key = parts[3]
+        value = parts[4]
 
-        # Start a new file entry
         if key == "Filename":
             filename = value
-            data[filename] = {}
-            continue
+            data[filename] = dict()
+        elif filename is not None:
+            if key in ("File type", "Encoding"):
+                data[filename][key] = value
+            elif key in ("Total Sequences", "Sequences flagged as poor quality", "%GC"):
+                data[filename][key] = int(value)
+            elif key == "Sequence length":
+                if "-" in value:
+                    nums = [int(x) for x in value.split("-")]
+                    value_int = max(nums)
+                else:
+                    value_int = int(value)
+                data[filename][key] = value_int
 
-        if not filename:
-            continue  # skip lines before a Filename appears
-
-        # Convert numeric fields to int
-        try:
-            if key == "Sequence length" and "-" in value:
-                value = max(int(x) for x in value.split("-"))
-            elif key in ["Total Sequences", "Sequences flagged as poor quality", "%GC"]:
-                value = int(value)
-        except ValueError:
-            value = None  # fallback if conversion fails
-
-        data[filename][key] = value
-
-    # Ensure at least an empty JSON object
-    if not data:
-        data = {}
-
-    # Write JSON to file
     with open("fastqc.json", "w") as fp:
-        import json
-
         json.dump(data, fp)
 
-    return data
 
+def main() -> None:
+    parser = argparse.ArgumentParser("fastqc Basic Statistics to json")
 
-@click.command(
-    context_settings=dict(help_option_names=["-h", "--help"]),
-    help="Convert FastQC Basic Statistics from SQLite to JSON",
-)
-@click.option(
-    "--sqlite_path",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to FastQC SQLite file",
-)
-def main(sqlite_path: str) -> int:
-    # If SQLite is empty, write empty JSON
-    if os.path.getsize(sqlite_path) == 0:
-        with open("fastqc.json", "w") as fp:
-            json.dump({}, fp)
-        return 0
+    parser.add_argument("--sqlite_path", required=True)
 
-    # Query SQLite safely without shell=True
-    cmd = ["sqlite3", sqlite_path, "SELECT * FROM fastqc_data_Basic_Statistics;"]
-    try:
-        output = subprocess.check_output(cmd, shell=False).decode("utf-8")
-    except subprocess.CalledProcessError:
-        # If SQLite fails, still output empty JSON
-        with open("fastqc.json", "w") as fp:
-            json.dump({}, fp)
-        return 0
+    args = parser.parse_args()
+    sqlite_path: str = args.sqlite_path
 
-    output_split = output.splitlines()
+    sqlite_size: int = os.path.getsize(sqlite_path)
+    if sqlite_size == 0:
+        subprocess.check_output(["touch", "fastqc.json"], shell=False)
+        return
+
+    cmd: List[str] = [
+        "sqlite3",
+        sqlite_path,
+        "SELECT * FROM fastqc_data_Basic_Statistics;",
+    ]
+    shell_cmd: str = " ".join(cmd)
+
+    output: str = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")
+    output_split: List[str] = output.split("\n")
+
     db_to_json(output_split)
-    return 0
 
 
 if __name__ == "__main__":
