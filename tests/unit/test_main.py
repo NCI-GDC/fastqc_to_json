@@ -8,37 +8,34 @@ from fastqc_to_json.main import main as cli_main
 
 
 class TestFastqcToJson:
-    def setUp(self):
+    def setup_method(self):
         self.runner = CliRunner()
 
     def test_empty_sqlite(self):
         """When the sqlite file is empty, fastqc.json should be created and empty."""
-        runner = CliRunner()
-
-        with runner.isolated_filesystem():
-            # Create empty sqlite file
+        with self.runner.isolated_filesystem():
             open("test.sqlite", "wb").close()
 
-            result = runner.invoke(cli_main, ["--sqlite_path", "test.sqlite"])
+            result = self.runner.invoke(cli_main, ["--sqlite_path", "test.sqlite"])
             assert result.exit_code == 0, result.output
 
-            # fastqc.json should exist and be empty JSON {}
             assert os.path.exists("fastqc.json")
-
             with open("fastqc.json") as f:
-                data = f.read()
-                assert data.strip() == "" or data.strip() == "{}"
+                data = f.read().strip()
+                assert data in ("", "{}")
 
     def test_nonempty_sqlite(self):
         """A sqlite DB with the expected table produces correct JSON."""
-        runner = CliRunner()
-
-        with runner.isolated_filesystem():
-            # Create DB with the expected table & one row
+        with self.runner.isolated_filesystem():
             conn = sqlite3.connect("test.sqlite")
             cur = conn.cursor()
             cur.execute(
                 "CREATE TABLE fastqc_data_Basic_Statistics (key TEXT, value TEXT)"
+            )
+
+            cur.execute(
+                "INSERT INTO fastqc_data_Basic_Statistics VALUES (?, ?)",
+                ("Filename", "sample1"),
             )
             cur.execute(
                 "INSERT INTO fastqc_data_Basic_Statistics VALUES (?, ?)",
@@ -47,14 +44,11 @@ class TestFastqcToJson:
             conn.commit()
             conn.close()
 
-            result = runner.invoke(cli_main, ["--sqlite_path", "test.sqlite"])
+            result = self.runner.invoke(cli_main, ["--sqlite_path", "test.sqlite"])
             assert result.exit_code == 0, result.output
 
-            # fastqc.json must exist
             assert os.path.exists("fastqc.json")
-
-            # Validate JSON contents
             with open("fastqc.json") as f:
                 data = json.load(f)
 
-            assert data == {"Total Sequences": "12345"}
+            assert data == {"sample1": {"Total Sequences": 12345}}

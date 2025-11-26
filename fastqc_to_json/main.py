@@ -3,7 +3,8 @@
 import json
 import os
 import sqlite3
-import subprocess
+
+# import subprocess
 from typing import Any, Dict, List
 
 import click
@@ -47,7 +48,7 @@ def db_to_json(result: List) -> Dict[str, Any]:
     help=("fastqc Basic Statistics to json"),
 )
 @click.option("--sqlite_path", required=True, type=click.Path(exists=True))
-def main(sqlite_path):
+def main(sqlite_path: str) -> int:
     """Convert FastQC sqlite DB to JSON."""
 
     sqlite_size = os.path.getsize(sqlite_path)
@@ -62,7 +63,6 @@ def main(sqlite_path):
     finally:
         conn.close()
 
-    # 👇 Convert to 5-field format expected by db_to_json
     output_split = [f"|||{k}|{v}" for k, v in rows]
 
     db_to_json(output_split)
