@@ -2,6 +2,7 @@
 
 import json
 import os
+import sqlite3
 import subprocess
 from typing import Any, Dict, List
 
@@ -45,12 +46,8 @@ def db_to_json(result: List) -> Dict[str, Any]:
     context_settings=dict(help_option_names=["-h", "--help"]),
     help=("fastqc Basic Statistics to json"),
 )
-@click.option(
-    "--sqlite_path",
-    help="path of sqlite file",
-    required=True,
-    type=click.Path(exists=True),
-)
+@click.command()
+@click.option("--sqlite_path", required=True, type=click.Path(exists=True))
 def main(sqlite_path):
     """Convert FastQC sqlite DB to JSON."""
 
@@ -58,16 +55,28 @@ def main(sqlite_path):
 
     # If empty DB, create empty JSON file
     if sqlite_size == 0:
-        subprocess.check_call(["touch", "fastqc.json"])
-        return
+        open("fastqc.json", "wb").close()
+        return 0
 
-    # Extract data with sqlite3
-    query = "select * from fastqc_data_Basic_Statistics;"
-    cmd = f'sqlite3 "{sqlite_path}" "{query}"'
-    output = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    # Read table using Python's sqlite3
+    conn = sqlite3.connect(sqlite_path)
+    cur = conn.cursor()
 
-    output_split = output.split("\n")
+    try:
+        rows = cur.execute("SELECT * FROM fastqc_data_Basic_Statistics;").fetchall()
+    except sqlite3.Error:
+        rows = []
+    finally:
+        conn.close()
+
+    # Convert rows to strings like "key|value"
+    output_split = [f"{k}|{v}" for (k, v) in rows]
+
+    # Write JSON
     db_to_json(output_split)
+
+    # Explicitly return 0 for Click
+    return 0
 
 
 if __name__ == "__main__":
