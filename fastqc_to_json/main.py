@@ -55,12 +55,8 @@ def main() -> None:
         subprocess.check_output(["touch", "fastqc.json"], shell=False)
         return
 
-    cmd: List[str] = [
-        "sqlite3",
-        sqlite_path,
-        "SELECT * FROM fastqc_data_Basic_Statistics;",
-    ]
-    shell_cmd: str = " ".join(cmd)
+    cmd = ["sqlite3", sqlite_path, '"select * from fastqc_data_Basic_Statistics;"']
+    shell_cmd = " ".join(cmd)
 
     output: str = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")
     output_split: List[str] = output.split("\n")
