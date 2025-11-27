@@ -55,13 +55,19 @@ def main() -> None:
         subprocess.check_output(["touch", "fastqc.json"], shell=False)
         return
 
-    cmd = ["sqlite3", sqlite_path, '"select * from fastqc_data_Basic_Statistics;"']
-    shell_cmd = " ".join(cmd)
-
-    output: str = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")
-    output_split: List[str] = output.split("\n")
-
+    cmd = ["sqlite3", sqlite_path, "select * from fastqc_data_Basic_Statistics;"]
+    output = subprocess.check_output(cmd).decode("utf-8")
+    output_split = output.split("\n")
     db_to_json(output_split)
+
+
+# cmd = ["sqlite3", sqlite_path, '"select * from fastqc_data_Basic_Statistics;"']
+# shell_cmd = " ".join(cmd)
+
+#    output: str = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")
+#    output_split: List[str] = output.split("\n")
+
+#    db_to_json(output_split)
 
 
 if __name__ == "__main__":
