@@ -1,75 +1,82 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import argparse
 import json
 import os
 import subprocess
 from typing import Any, Dict, List
 
+import click
+
 
 def db_to_json(rows: List[str]) -> None:
     """
-    Convert SQLite row strings to fastqc.json structure.
-    Rows are expected in the format:
-        index|job_uuid|fastq|col3|col4|col5|filename|measure|value
+    Convert SQLite output rows into fastqc.json for the NEW database structure.
+
+    Row format from new fastqc_data_Basic_Statistics:
+        job_uuid|fastq|Measure|Value
     """
+
     data: Dict[str, Dict[str, Any]] = {}
 
     for line in rows:
-        parts = line.strip().split("|")
-        if len(parts) < 9:
+        line = line.strip()
+        if not line:
             continue
 
-        filename = parts[6]
-        measure = parts[7]
-        raw_value = parts[8]
+        parts = line.split("|")
+        if len(parts) != 4:
+            continue  # Not a valid row
 
-        if filename not in data:
-            data[filename] = {}
+        job_uuid, fastq, measure, raw_value = parts
 
-        # Typed value holder
-        value: Any = raw_value
+        if fastq not in data:
+            data[fastq] = {}
 
         # Attempt numeric conversion
-        num_candidate = raw_value.replace(".", "", 1)
-        if num_candidate.isdigit():
-            try:
-                if "." in raw_value:
-                    f = float(raw_value)
-                    value = int(f) if f.is_integer() else f
-                else:
-                    value = int(raw_value)
-            except ValueError:
-                value = raw_value
+        value: Any
+        try:
+            if "." in raw_value:
+                f = float(raw_value)
+                value = int(f) if f.is_integer() else f
+            else:
+                value = int(raw_value)
+        except ValueError:
+            value = raw_value
 
-        data[filename][measure] = value
+        data[fastq][measure] = value
 
-    # Write output JSON
+    # Write JSON output
     with open("fastqc.json", "w") as fp:
         json.dump(data, fp, indent=2)
 
 
-def main() -> int:
-    """
-    CLI entrypoint. Behaves exactly like the original script but returns an int.
-    """
-    parser = argparse.ArgumentParser("fastqc Basic Statistics to json")
-    parser.add_argument("--sqlite_path", required=True)
-    args = parser.parse_args()
-
-    sqlite_path = args.sqlite_path
-
-    # If SQLite file exists but contains no data → write empty JSON
+@click.command(
+    context_settings=dict(help_option_names=["-h", "--help"]),
+    help="Convert fastqc_data_Basic_Statistics table into JSON (NEW DB STRUCTURE).",
+)
+@click.option(
+    "--sqlite_path",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to the SQLite database file",
+)
+def main(sqlite_path: str) -> int:
+    # Empty DB file → empty JSON
     if os.path.getsize(sqlite_path) == 0:
-        subprocess.check_output(["touch", "fastqc.json"])
+        with open("fastqc.json", "w") as fp:
+            fp.write("{}")
         return 0
 
-    # Query Basic Statistics table (same as original)
+    # Query the new table
     cmd = ["sqlite3", sqlite_path, "SELECT * FROM fastqc_data_Basic_Statistics;"]
 
-    output = subprocess.check_output(cmd).decode("utf-8")
-    rows = output.split("\n")
+    try:
+        output = subprocess.check_output(cmd).decode("utf-8")
+    except subprocess.CalledProcessError as e:
+        click.echo(f"ERROR: SQLite query failed: {e}", err=True)
+        return 1
 
+    rows = output.split("\n")
     db_to_json(rows)
     return 0
 
