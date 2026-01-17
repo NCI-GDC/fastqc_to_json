@@ -1,83 +1,103 @@
 #!/usr/bin/env python3
 
+import argparse
 import json
+import logging
 import os
-import subprocess
-from typing import Any, Dict, List
 
-import click
+import sqlalchemy
+from sqlalchemy import text
+
+from .fastqc_db import fastqc_db
 
 
-def db_to_json(rows: List[str]) -> None:
+def db_to_json(engine: sqlalchemy.Engine) -> None:
     """
-    Convert SQLite output rows into fastqc.json for the NEW database structure.
-
-    Row format from new fastqc_data_Basic_Statistics:
-        job_uuid|fastq|Measure|Value
+    Mirror the original sqlite3-based script as closely as possible.
+    Output is always valid JSON (never empty).
     """
+    data = {}
+    filename = None
 
-    data: Dict[str, Dict[str, Any]] = {}
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT * FROM fastqc_data_Basic_Statistics")
+        ).fetchall()
 
-    for line in rows:
-        line = line.strip()
-        if not line:
+    # Original behavior: empty DB → empty JSON object
+    if not rows:
+        with open("fastqc.json", "w") as fp:
+            json.dump({}, fp)
+        return
+
+    for row in rows:
+        # Match original column usage exactly
+        key = row[3]
+        value = row[4]
+
+        if not key or value is None:
             continue
 
-        parts = line.split("|")
-        if len(parts) != 4:
-            continue  # Not a valid row
+        if key == "Filename":
+            filename = value
+            data[filename] = {}
 
-        job_uuid, fastq, measure, raw_value = parts
+        elif filename is None:
+            continue
 
-        if fastq not in data:
-            data[fastq] = {}
+        elif key in ("File type", "Encoding"):
+            data[filename][key] = value
 
-        # Attempt numeric conversion
-        value: Any
-        try:
-            if "." in raw_value:
-                f = float(raw_value)
-                value = int(f) if f.is_integer() else f
-            else:
-                value = int(raw_value)
-        except ValueError:
-            value = raw_value
+        elif key in (
+            "Total Sequences",
+            "Sequences flagged as poor quality",
+            "%GC",
+        ):
+            try:
+                data[filename][key] = int(value)
+            except ValueError:
+                pass
 
-        data[fastq][measure] = value
+        elif key == "Sequence length":
+            if "-" in value:
+                try:
+                    value = max(int(x) for x in value.split("-"))
+                except ValueError:
+                    continue
+            try:
+                data[filename][key] = int(value)
+            except ValueError:
+                pass
 
-    # Write JSON output
     with open("fastqc.json", "w") as fp:
-        json.dump(data, fp, indent=2)
+        json.dump(data, fp)
 
 
-@click.command(
-    context_settings=dict(help_option_names=["-h", "--help"]),
-    help="Convert fastqc_data_Basic_Statistics table into JSON (NEW DB STRUCTURE).",
-)
-@click.option(
-    "--sqlite_path",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to the SQLite database file",
-)
-def main(sqlite_path: str) -> int:
-    # Empty DB file → empty JSON
-    if os.path.getsize(sqlite_path) == 0:
+def main() -> int:
+    parser = argparse.ArgumentParser("fastqc Basic Statistics to json")
+
+    parser.add_argument("--job_uuid", required=True)
+    parser.add_argument("--INPUT", required=True)
+
+    args = parser.parse_args()
+
+    fastqc_zip_path = args.INPUT
+    fastqc_zip_base = os.path.splitext(os.path.basename(fastqc_zip_path))[0]
+
+    sqlite_name = f"{fastqc_zip_base}.db"
+    engine = sqlalchemy.create_engine(f"sqlite:///{sqlite_name}")
+
+    # Run the existing DB creator unchanged
+    fastqc_db(args.job_uuid, fastqc_zip_path, engine, logging.getLogger(__name__))
+
+    # Convert DB → JSON (old behavior)
+    db_to_json(engine)
+
+    # Safety net: guarantee file exists and is valid JSON
+    if not os.path.exists("fastqc.json"):
         with open("fastqc.json", "w") as fp:
-            fp.write("{}")
-        return 0
+            json.dump({}, fp)
 
-    # Query the new table
-    cmd = ["sqlite3", sqlite_path, "SELECT * FROM fastqc_data_Basic_Statistics;"]
-
-    try:
-        output = subprocess.check_output(cmd).decode("utf-8")
-    except subprocess.CalledProcessError as e:
-        click.echo(f"ERROR: SQLite query failed: {e}", err=True)
-        return 1
-
-    rows = output.split("\n")
-    db_to_json(rows)
     return 0
 
 
