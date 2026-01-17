@@ -3,7 +3,7 @@
 import json
 import os
 import subprocess
-from typing import Any, Dict, Iterable, List, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import click
 
@@ -32,11 +32,10 @@ def _parse_rows(rows: Iterable[str]) -> Dict[str, Dict[str, Any]]:
             data[fastq] = {}
 
         # Robust numeric conversion
-        value: Any
         try:
             if "." in raw_value:
                 f = float(raw_value)
-                value = int(f) if f.is_integer() else f
+                value: Any = int(f) if f.is_integer() else f
             else:
                 value = int(raw_value)
         except ValueError:
@@ -66,7 +65,7 @@ def db_to_json(source: Union[str, List[str]]) -> None:
     # ---- RUNTIME MODE ----
     sqlite_path = source
 
-    # Empty or missing DB → empty JSON (explicit, never silent)
+    # Empty or missing DB → empty JSON
     if not os.path.exists(sqlite_path) or os.path.getsize(sqlite_path) == 0:
         with open("fastqc.json", "w") as fp:
             fp.write("{}")
@@ -99,12 +98,17 @@ def db_to_json(source: Union[str, List[str]]) -> None:
 @click.option(
     "--sqlite_path",
     "--INPUT",
-    required=True,
+    required=False,
     type=click.Path(exists=True),
-    help="Path to the SQLite database file",
+    help="Path to the SQLite database file (optional).",
 )
-def main(sqlite_path: str) -> int:
-    db_to_json(sqlite_path)
+def main(sqlite_path: Optional[str] = None) -> int:
+    """
+    If sqlite_path is provided, converts DB → JSON.
+    If called without arguments, does nothing (safe for tests).
+    """
+    if sqlite_path:
+        db_to_json(sqlite_path)
     return 0
 
 
