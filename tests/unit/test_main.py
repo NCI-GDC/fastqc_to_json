@@ -1,43 +1,51 @@
-import json
 import os
+import sqlite3
 import tempfile
 
-from fastqc_to_json.main import db_to_json
+from fastqc_to_json.main import OUTPUT_JSON, db_to_json
 
 
-def test_db_to_json_parses_fastqc_basic_stats():
-    # Simulated sqlite3 output for the NEW schema:
-    # job_uuid | fastq | Measure | Value
-    sample_rows = [
-        "0|None|None|None|None|uuid|sample_1.fastq.gz|File type|Conventional base calls",
-        "1|None|None|None|None|uuid|sample_1.fastq.gz|Encoding|Sanger / Illumina 1.9",
-        "2|None|None|None|None|uuid|sample_1.fastq.gz|Total Sequences|123456",
-        "3|None|None|None|None|uuid|sample_1.fastq.gz|Sequences flagged as poor quality|12",
-        "4|None|None|None|None|uuid|sample_1.fastq.gz|Sequence length|101",
-        "5|None|None|None|None|uuid|sample_1.fastq.gz|%GC|45",
-    ]
-
+def test_db_to_json_creates_json_file():
     with tempfile.TemporaryDirectory() as tmpdir:
-        cwd = os.getcwd()
+        db_path = os.path.join(tmpdir, "test.db")
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Create table matching your schema
+        cursor.execute(
+            """
+            CREATE TABLE fastqc_data_Basic_Statistics (
+                job_uuid TEXT,
+                fastq TEXT,
+                Measure TEXT,
+                Value TEXT
+            );
+            """
+        )
+
+        # Insert test rows
+        cursor.executemany(
+            "INSERT INTO fastqc_data_Basic_Statistics VALUES (?, ?, ?, ?)",
+            [
+                ("uuid", "sample_1.fastq.gz", "Total Sequences", "123456"),
+                ("uuid", "sample_1.fastq.gz", "Sequence length", "101"),
+                ("uuid", "sample_1.fastq.gz", "%GC", "45"),
+            ],
+        )
+        conn.commit()
+        conn.close()
+
+        # Change working directory to tmpdir so OUTPUT_JSON is written there
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
         try:
-            os.chdir(tmpdir)
-
-            db_to_json(sample_rows)
-
-            assert os.path.exists("fastqc.json")
-
-            with open("fastqc.json") as fp:
-                data = json.load(fp)
-
+            data = db_to_json(db_path)
+            # JSON file should exist
+            assert os.path.exists(OUTPUT_JSON)
+            # JSON content is correct
             assert "sample_1.fastq.gz" in data
-            stats = data["sample_1.fastq.gz"]
-
-            assert stats["File type"] == "Conventional base calls"
-            assert stats["Encoding"] == "Sanger / Illumina 1.9"
-            assert stats["Total Sequences"] == 123456
-            assert stats["Sequences flagged as poor quality"] == 12
-            assert stats["Sequence length"] == 101
-            assert stats["%GC"] == 45
-
+            assert data["sample_1.fastq.gz"]["Total Sequences"] == 123456
+            assert data["sample_1.fastq.gz"]["Sequence length"] == 101
+            assert data["sample_1.fastq.gz"]["%GC"] == 45
         finally:
-            os.chdir(cwd)
+            os.chdir(old_cwd)

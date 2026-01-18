@@ -3,76 +3,68 @@
 import argparse
 import json
 import os
-import subprocess
+import sqlite3
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 OUTPUT_JSON = "fastqc.json"
 
 
-def run_sqlite_query(sqlite_path: str) -> List[str]:
-    """
-    Run a SQLite query to get the broken fastqc_data_Basic_Statistics schema.
-    Returns raw sqlite3 output lines.
-    """
-    query = """
-    SELECT
-        "('job_uuid',)",
-        "('fastq',)",
-        "('Measure',)",
-        "('Value',)"
-    FROM fastqc_data_Basic_Statistics;
-    """
+def db_to_json(sqlite_path: str) -> Dict[str, Dict[str, Any]]:
+    """Read fastqc_data_Basic_Statistics table and convert to JSON."""
 
-    try:
-        output = subprocess.check_output(
-            ["sqlite3", sqlite_path, query], stderr=subprocess.STDOUT
-        ).decode("utf-8")
-    except subprocess.CalledProcessError as e:
-        sys.stderr.write(f"ERROR: sqlite3 failed:\n{e.output.decode()}\n")
+    if not os.path.exists(sqlite_path):
+        sys.stderr.write(f"ERROR: SQLite DB not found: {sqlite_path}\n")
         sys.exit(1)
 
-    # Only non-empty lines
-    return [line for line in output.splitlines() if line.strip()]
+    conn = sqlite3.connect(sqlite_path)
+    cursor = conn.cursor()
 
-
-def coerce_value(raw: str) -> Any:
-    """Convert SQLite text values to int or float if possible, otherwise keep string."""
     try:
-        if "." in raw:
-            f = float(raw)
-            return int(f) if f.is_integer() else f
-        return int(raw)
-    except ValueError:
-        return raw
+        cursor.execute(
+            """
+            SELECT job_uuid, fastq, Measure, Value
+            FROM fastqc_data_Basic_Statistics;
+            """
+        )
+        rows = cursor.fetchall()
+    except sqlite3.DatabaseError as e:
+        sys.stderr.write(f"ERROR: SQLite query failed: {e}\n")
+        conn.close()
+        sys.exit(1)
+    conn.close()
 
-
-def db_to_json(rows: List[str]) -> Dict[str, Dict[str, Any]]:
-    """
-    Convert SQLite output rows into fastqc.json
-    Rows are expected in the broken schema with:
-    0-4 ignored, 5=job_uuid, 6=fastq, 7=Measure, 8=Value
-    """
     data: Dict[str, Dict[str, Any]] = {}
-
-    for line in rows:
-        parts = line.strip().split("|")
-        if len(parts) < 9:
+    for row in rows:
+        if len(row) != 4:
+            continue
+        _, fastq, measure, raw_value = row
+        if fastq is None or measure is None or raw_value is None:
             continue
 
-        fastq = parts[6]
-        measure = parts[7]
-        raw_value = parts[8]
+        # Convert numeric values
+        try:
+            if "." in str(raw_value):
+                f = float(raw_value)
+                value: Any = int(f) if f.is_integer() else f
+            else:
+                value = int(raw_value)
+        except (ValueError, TypeError):
+            value = raw_value
 
         if fastq not in data:
             data[fastq] = {}
 
-        value = coerce_value(raw_value)
         data[fastq][measure] = value
 
-    # Always produce a JSON file, even if empty
+    # Always write JSON
     with open(OUTPUT_JSON, "w") as fp:
         json.dump(data, fp, indent=2)
+
+    if not data:
+        sys.stderr.write(
+            "WARNING: Database contained no usable rows. JSON produced but may be empty.\n"
+        )
 
     return data
 
@@ -87,28 +79,8 @@ def main() -> int:
         help="Path to the SQLite database file containing fastqc_data_Basic_Statistics",
     )
     args = parser.parse_args()
-    sqlite_path = args.sqlite_path
 
-    # Check the DB exists
-    if not os.path.exists(sqlite_path):
-        sys.stderr.write(f"ERROR: SQLite DB not found: {sqlite_path}\n")
-        return 1
-
-    # Empty DB → produce empty JSON explicitly
-    if os.path.getsize(sqlite_path) == 0:
-        with open(OUTPUT_JSON, "w") as fp:
-            fp.write("{}")
-        return 0
-
-    # Run query and convert to JSON
-    rows = run_sqlite_query(sqlite_path)
-    data = db_to_json(rows)
-
-    if not data:
-        sys.stderr.write(
-            "WARNING: Database contained no usable rows. JSON produced but may be empty.\n"
-        )
-
+    db_to_json(args.sqlite_path)
     return 0
 
 
