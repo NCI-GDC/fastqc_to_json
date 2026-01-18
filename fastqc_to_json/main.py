@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 
+import argparse
 import json
 import os
 import subprocess
 import sys
-from typing import Any, List, Optional
+from typing import Any, Dict, List
 
 OUTPUT_JSON = "fastqc.json"
 
 
 def run_sqlite_query(sqlite_path: str) -> List[str]:
     """
-    Run the exact query required for the broken fastqc_data_Basic_Statistics schema.
+    Run a SQLite query to get the broken fastqc_data_Basic_Statistics schema.
     Returns raw sqlite3 output lines.
     """
     query = """
@@ -25,20 +26,18 @@ def run_sqlite_query(sqlite_path: str) -> List[str]:
 
     try:
         output = subprocess.check_output(
-            ["sqlite3", sqlite_path, query],
-            stderr=subprocess.STDOUT,
+            ["sqlite3", sqlite_path, query], stderr=subprocess.STDOUT
         ).decode("utf-8")
     except subprocess.CalledProcessError as e:
         sys.stderr.write(f"ERROR: sqlite3 failed:\n{e.output.decode()}\n")
         sys.exit(1)
 
+    # Only non-empty lines
     return [line for line in output.splitlines() if line.strip()]
 
 
 def coerce_value(raw: str) -> Any:
-    """
-    Convert SQLite text values to int / float when appropriate.
-    """
+    """Convert SQLite text values to int or float if possible, otherwise keep string."""
     try:
         if "." in raw:
             f = float(raw)
@@ -48,11 +47,16 @@ def coerce_value(raw: str) -> Any:
         return raw
 
 
-def db_to_json(rows: list[str]) -> dict[str, dict[str, object]]:
-    data: dict[str, dict[str, object]] = {}
+def db_to_json(rows: List[str]) -> Dict[str, Dict[str, Any]]:
+    """
+    Convert SQLite output rows into fastqc.json
+    Rows are expected in the broken schema with:
+    0-4 ignored, 5=job_uuid, 6=fastq, 7=Measure, 8=Value
+    """
+    data: Dict[str, Dict[str, Any]] = {}
 
     for line in rows:
-        parts = line.split("|")
+        parts = line.strip().split("|")
         if len(parts) < 9:
             continue
 
@@ -63,72 +67,47 @@ def db_to_json(rows: list[str]) -> dict[str, dict[str, object]]:
         if fastq not in data:
             data[fastq] = {}
 
-        if raw_value.isdigit():
-            value: object = int(raw_value)
-        else:
-            try:
-                value = float(raw_value)
-            except ValueError:
-                value = raw_value
-
+        value = coerce_value(raw_value)
         data[fastq][measure] = value
 
-    with open("fastqc.json", "w") as fp:
+    # Always produce a JSON file, even if empty
+    with open(OUTPUT_JSON, "w") as fp:
         json.dump(data, fp, indent=2)
 
     return data
 
 
-def resolve_sqlite_path() -> Optional[str]:
-    """
-    Resolve the SQLite path in CWL/Docker-safe order:
-    1. First positional argument
-    2. SQLITE_PATH env var
-    3. Fail clearly
-    """
-    if len(sys.argv) > 1:
-        return sys.argv[1]
-
-    env_path = os.environ.get("SQLITE_PATH")
-    if env_path:
-        return env_path
-
-    return None
-
-
 def main() -> int:
-    sqlite_path = resolve_sqlite_path()
+    parser = argparse.ArgumentParser(
+        description="Convert fastqc Basic Statistics table to JSON"
+    )
+    parser.add_argument(
+        "--sqlite_path",
+        required=True,
+        help="Path to the SQLite database file containing fastqc_data_Basic_Statistics",
+    )
+    args = parser.parse_args()
+    sqlite_path = args.sqlite_path
 
-    if not sqlite_path:
-        sys.stderr.write(
-            "ERROR: No SQLite DB path provided.\n"
-            "Provide as positional argument or set SQLITE_PATH.\n"
-        )
-        return 1
-
+    # Check the DB exists
     if not os.path.exists(sqlite_path):
         sys.stderr.write(f"ERROR: SQLite DB not found: {sqlite_path}\n")
         return 1
 
+    # Empty DB → produce empty JSON explicitly
     if os.path.getsize(sqlite_path) == 0:
-        # Empty DB → empty JSON (explicit)
         with open(OUTPUT_JSON, "w") as fp:
             fp.write("{}")
         return 0
 
+    # Run query and convert to JSON
     rows = run_sqlite_query(sqlite_path)
-
     data = db_to_json(rows)
 
     if not data:
         sys.stderr.write(
-            "ERROR: Database contained rows but produced empty JSON.\n"
-            "Schema mismatch or unexpected data format.\n"
+            "WARNING: Database contained no usable rows. JSON produced but may be empty.\n"
         )
-        return 1
-
-    with open(OUTPUT_JSON, "w") as fp:
-        json.dump(data, fp, indent=2)
 
     return 0
 
