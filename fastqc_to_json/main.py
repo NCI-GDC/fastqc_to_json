@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Tuple
 
 OUTPUT_JSON = "fastqc.json"
 
+
 NORMAL_COLS = ("job_uuid", "fastq", "Measure", "Value")
 BROKEN_COLS = ("('job_uuid',)", "('fastq',)", "('Measure',)", "('Value',)")
 
@@ -33,14 +34,11 @@ def _detect_columns(cursor: sqlite3.Cursor) -> Tuple[str, str, str, str]:
 def _coerce_value(raw: Any) -> Any:
     if raw is None:
         return None
-
     try:
         if isinstance(raw, str) and "." in raw:
             f = float(raw)
             return int(f) if f.is_integer() else f
-
         return int(raw)
-
     except (ValueError, TypeError):
         return raw
 
@@ -67,7 +65,6 @@ def db_to_json(sqlite_path: str) -> Dict[str, Dict[str, Any]]:
     try:
         cursor.execute(query)
         rows: List[Tuple[Any, Any, Any, Any]] = cursor.fetchall()
-
     except sqlite3.DatabaseError as e:
         sys.stderr.write(f"ERROR: SQLite query failed: {e}\n")
         conn.close()
@@ -103,17 +100,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Convert fastqc Basic Statistics table to JSON"
     )
-
     parser.add_argument(
         "--sqlite_path",
         required=True,
         help="Path to SQLite DB containing fastqc_data_Basic_Statistics",
     )
-
     args = parser.parse_args()
 
     db_to_json(args.sqlite_path)
-
     return 0
 
 
