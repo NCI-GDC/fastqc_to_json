@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import os
 import sqlite3
 import sys
 from typing import Any, Dict, List, Tuple
