@@ -1,7 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 from typing import Any, Dict, List, Tuple
@@ -29,8 +30,25 @@ def _detect_columns(cursor: sqlite3.Cursor) -> Tuple[str, str, str, str]:
     sys.exit(1)
 
 
-def db_to_json(sqlite_path: str) -> Dict[str, Any]:
-    data: Dict[str, Any] = dict()
+def _coerce_value(raw: Any) -> Any:
+    if raw is None:
+        return None
+
+    try:
+        if isinstance(raw, str) and "." in raw:
+            f = float(raw)
+            return int(f) if f.is_integer() else f
+
+        return int(raw)
+
+    except (ValueError, TypeError):
+        return raw
+
+
+def db_to_json(sqlite_path: str) -> Dict[str, Dict[str, Any]]:
+    if not os.path.exists(sqlite_path):
+        sys.stderr.write(f"ERROR: SQLite DB not found: {sqlite_path}\n")
+        sys.exit(1)
 
     conn = sqlite3.connect(sqlite_path)
     cursor = conn.cursor()
@@ -46,43 +64,37 @@ def db_to_json(sqlite_path: str) -> Dict[str, Any]:
         FROM fastqc_data_Basic_Statistics
     """
 
-    cursor.execute(query)
-    rows: List[Tuple[Any, Any, Any, Any]] = cursor.fetchall()
+    try:
+        cursor.execute(query)
+        rows: List[Tuple[Any, Any, Any, Any]] = cursor.fetchall()
+
+    except sqlite3.DatabaseError as e:
+        sys.stderr.write(f"ERROR: SQLite query failed: {e}\n")
+        conn.close()
+        sys.exit(1)
 
     conn.close()
 
-    for job_uuid, fastq, key, value in rows:
-        if fastq not in data:
-            data[fastq] = dict()
+    data: Dict[str, Dict[str, Any]] = {}
 
-        if key == "Filename":
+    for job_uuid, fastq, measure, raw_value in rows:
+        if not fastq or not measure:
             continue
 
-        elif key == "File type":
-            data[fastq][key] = value
+        value = _coerce_value(raw_value)
 
-        elif key == "Encoding":
-            data[fastq][key] = value
+        data.setdefault(fastq, {})[measure] = value
 
-        elif key == "Total Sequences":
-            data[fastq][key] = int(value)
-
-        elif key == "Sequences flagged as poor quality":
-            data[fastq][key] = int(value)
-
-        elif key == "Sequence length":
-            if "-" in value:
-                value_split = value.split("-")
-                value_int = [int(x) for x in value_split]
-                value = max(value_int)
-
-            data[fastq][key] = int(value)
-
-        elif key == "%GC":
-            data[fastq][key] = int(value)
-
+    # Always write JSON for CWL
     with open(OUTPUT_JSON, "w") as fp:
-        json.dump(data, fp)
+        json.dump(data, fp, indent=2)
+
+    if not data:
+        sys.stderr.write(
+            "ERROR: Database rows found but JSON is empty.\n"
+            "This indicates a schema or ingestion error upstream.\n"
+        )
+        sys.exit(1)
 
     return data
 
