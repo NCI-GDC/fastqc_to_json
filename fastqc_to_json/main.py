@@ -3,36 +3,73 @@
 import argparse
 import json
 import os
-import subprocess
-from typing import Any, Dict, List
+import sqlite3
+import sys
+from typing import Any, Dict, List, Tuple
+
+OUTPUT_JSON = "fastqc.json"
+
+NORMAL_COLS = ("job_uuid", "fastq", "Measure", "Value")
+BROKEN_COLS = ("('job_uuid',)", "('fastq',)", "('Measure',)", "('Value',)")
 
 
-def db_to_json(result: List) -> Dict[str, Any]:
+def _detect_columns(cursor: sqlite3.Cursor) -> Tuple[str, str, str, str]:
+    cursor.execute("PRAGMA table_info(fastqc_data_Basic_Statistics);")
+    cols = {row[1] for row in cursor.fetchall()}
+
+    if all(c in cols for c in BROKEN_COLS):
+        return BROKEN_COLS
+
+    if all(c in cols for c in NORMAL_COLS):
+        return NORMAL_COLS
+
+    sys.stderr.write(
+        "ERROR: fastqc_data_Basic_Statistics does not contain usable columns.\n"
+        f"Found columns: {sorted(cols)}\n"
+    )
+    sys.exit(1)
+
+
+def db_to_json(sqlite_path: str) -> Dict[str, Any]:
     data: Dict[str, Any] = dict()
 
-    for line in result:
-        if line == "":
-            continue
+    conn = sqlite3.connect(sqlite_path)
+    cursor = conn.cursor()
 
-        line_split = line.strip().split("|")
-        key = line_split[3]
-        value = line_split[4]
+    job_col, fastq_col, measure_col, value_col = _detect_columns(cursor)
+
+    query = f"""
+        SELECT
+            "{job_col}",
+            "{fastq_col}",
+            "{measure_col}",
+            "{value_col}"
+        FROM fastqc_data_Basic_Statistics
+    """
+
+    cursor.execute(query)
+    rows: List[Tuple[Any, Any, Any, Any]] = cursor.fetchall()
+
+    conn.close()
+
+    for job_uuid, fastq, key, value in rows:
+        if fastq not in data:
+            data[fastq] = dict()
 
         if key == "Filename":
-            filename = value
-            data[filename] = dict()
+            continue
 
         elif key == "File type":
-            data[filename][key] = value
+            data[fastq][key] = value
 
         elif key == "Encoding":
-            data[filename][key] = value
+            data[fastq][key] = value
 
         elif key == "Total Sequences":
-            data[filename][key] = int(value)
+            data[fastq][key] = int(value)
 
         elif key == "Sequences flagged as poor quality":
-            data[filename][key] = int(value)
+            data[fastq][key] = int(value)
 
         elif key == "Sequence length":
             if "-" in value:
@@ -40,12 +77,12 @@ def db_to_json(result: List) -> Dict[str, Any]:
                 value_int = [int(x) for x in value_split]
                 value = max(value_int)
 
-            data[filename][key] = int(value)
+            data[fastq][key] = int(value)
 
         elif key == "%GC":
-            data[filename][key] = int(value)
+            data[fastq][key] = int(value)
 
-    with open("fastqc.json", "w") as fp:
+    with open(OUTPUT_JSON, "w") as fp:
         json.dump(data, fp)
 
     return data
@@ -64,31 +101,10 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # if no data, then output zero byte json file
-    sqlite_size = os.path.getsize(args.sqlite_path)
-
-    if sqlite_size == 0:
-        cmd = ["touch", "fastqc.json"]
-        subprocess.check_output(cmd, shell=False)
-        return 0
-
-    # if data, then output populated json
-    cmd = [
-        "sqlite3",
-        args.sqlite_path,
-        '"select * from fastqc_data_Basic_Statistics;"',
-    ]
-
-    shell_cmd = " ".join(cmd)
-
-    output = subprocess.check_output(shell_cmd, shell=True).decode("utf-8")
-
-    output_split = output.split("\n")
-
-    db_to_json(output_split)
+    db_to_json(args.sqlite_path)
 
     return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
