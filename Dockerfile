@@ -1,9 +1,8 @@
 ARG REGISTRY=docker.osdc.io/ncigdc
-ARG BASE_CONTAINER_VERSION=latest
+ARG BASE_CONTAINER_VERSION=4.4.1
 
-FROM ${REGISTRY}/python3.11-builder:${BASE_CONTAINER_VERSION} as builder
+FROM ${REGISTRY}/python3.11-builder:${BASE_CONTAINER_VERSION} AS builder
 
-# Install necessary build dependencies including clang
 RUN dnf update --refresh -y && \
     dnf install -y clang boost boost-devel gcc-c++ git make
 
@@ -11,7 +10,8 @@ COPY ./ /fastqc_to_json
 
 WORKDIR /fastqc_to_json
 
-RUN pip install tox && tox -e build
+RUN if command -v uv >/dev/null 2>&1; then true; else pip install uv; fi && \
+    uv tool run --with tox-uv tox -e build
 
 FROM ${REGISTRY}/python3.11:${BASE_CONTAINER_VERSION}
 
@@ -25,9 +25,9 @@ COPY requirements.txt /fastqc_to_json/
 
 WORKDIR /fastqc_to_json
 
-RUN pip install --no-deps -r requirements.txt \
-	&& pip install --no-deps *.whl \
-	&& rm -f *.whl requirements.txt
+RUN pip install --no-deps -r requirements.txt && \
+    pip install --no-deps *.whl && \
+    rm -f *.whl requirements.txt
 
 USER app
 
