@@ -1,16 +1,24 @@
 ---
+
 include:
   - project: nci-gdc/gitlab-templates
-    ref: master
+    ref: 0.5.1
     file:
       - templates/global/full.yaml
       - templates/python/full.yaml
+      - templates/common/python.yaml
 
 variables:
+  BASE_CONTAINER_VERSION: "3.0.3"
   BUILD_PY_VERSION: python3.11
   RELEASE_PY_VERSION: python3.11
+  PIP_EXTRA_INDEX_URL: "https://nexus.osdc.io/repository/pypi-gdc-releases/simple"
 
-.parallel:
+tox:
   parallel:
     matrix:
       - BUILD_PY_VERSION: [python3.11]
+
+release:
+  variables:
+    RELEASE_PY_VERSION: python3.11
