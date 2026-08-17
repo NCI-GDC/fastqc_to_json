@@ -10,6 +10,7 @@ variables:
 
 build_dockers:
   stage: build
+  image: docker.osdc.io/docker:28.5.1-dind
   variables:
     GIT_DEPTH: 0
     BASE_CONTAINER_REGISTRY: "docker.osdc.io"
