@@ -1,4 +1,4 @@
-include:
+kinclude:
   - component: $CI_SERVER_FQDN/nci-gdc/platform-engineering/generate-version/generate_version@0.4.2
     inputs:
       stage: tag
