@@ -1,4 +1,4 @@
-kinclude:
+include:
   - project: nci-gdc/gitlab-templates
     ref: master
     file:
