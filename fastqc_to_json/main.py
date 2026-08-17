@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Tuple
 
 OUTPUT_JSON = "fastqc.json"
 
-
 NORMAL_COLS = ("job_uuid", "fastq", "Measure", "Value")
 BROKEN_COLS = ("('job_uuid',)", "('fastq',)", "('Measure',)", "('Value',)")
 
@@ -34,11 +33,18 @@ def _detect_columns(cursor: sqlite3.Cursor) -> Tuple[str, str, str, str]:
 def _coerce_value(raw: Any) -> Any:
     if raw is None:
         return None
+
+    # If FastQC reports a range, e.g. "15-51", use the upper value.
+    if isinstance(raw, str) and "-" in raw:
+        raw = raw.rsplit("-", 1)[-1].strip()
+
     try:
         if isinstance(raw, str) and "." in raw:
             f = float(raw)
             return int(f) if f.is_integer() else f
+
         return int(raw)
+
     except (ValueError, TypeError):
         return raw
 

@@ -5,13 +5,13 @@ build-backend = "flit_scm:buildapi"
 
 [project]
 name = "fastqc_to_json"
-description = "Convert FastQC Basic Statistics table to JSON"
+description = "Python Boilerplate contains all the boilerplate you need to create a Python package"
 authors = [
     { name = "Linghao Song", email = "sxwcasd@gmail.com" }
 ]
 
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 license = { file = "LICENSE" }
 
 classifiers = [
@@ -98,7 +98,7 @@ exclude = [
 
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.9"
 disallow_untyped_defs = true
 warn_return_any = true
 warn_unused_configs = true
@@ -136,7 +136,7 @@ exclude = [
 
 line-length = 88
 indent-width = 4
-target-version = "py311"
+target-version = "py39"
 
 
 [tool.ruff.lint]

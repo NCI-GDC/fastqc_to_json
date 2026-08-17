@@ -1,23 +1,16 @@
-include:
-  - component: $CI_SERVER_FQDN/nci-gdc/platform-engineering/generate-version/generate_version@0.4.2
-    inputs:
-      stage: tag
-
-  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/workflow@feat/components
-
-  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/pre-commit@feat/components
+kinclude:
+  - project: nci-gdc/gitlab-templates
+    ref: master
+    file:
+      - templates/global/full.yaml
 
   - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/tox@feat/components
     inputs:
-      python_version: "3.11"
+      python_version: "3.9"
       image_version: "4.4.1"
 
-  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-build@feat/components
-
-  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-release@feat/components
-
-  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-release-latest@feat/components
-
+variables:
+  DOCKER_VERSION: "27.4.0"
 
 stages:
   - test
@@ -25,6 +18,21 @@ stages:
   - release
   - tag
 
-
 tox:
+  stage: test
   image: docker.osdc.io/ncigdc/amzn2023-builder:4.4.1
+
+build_dockers:
+  stage: build
+  variables:
+    GIT_DEPTH: "0"
+    BASE_CONTAINER_REGISTRY: "docker.osdc.io"
+  services:
+    - docker:27.4.0-dind
+  tags:
+    - dind
+  before_script:
+    - docker info
+    - apk add --no-cache bash moreutils git go curl just
+  script:
+    - /bin/bash build.sh -b "$CI_COMMIT_BRANCH"
