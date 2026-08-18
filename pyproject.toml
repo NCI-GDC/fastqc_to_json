@@ -1,60 +1,48 @@
 [build-system]
-requires = ["flit_scm"]
 build-backend = "flit_scm:buildapi"
+requires = [ "flit-scm" ]
 
 [project]
-name = "fastqc_to_json"
+name = "fastqc-to-json"
 description = "Convert FastQC Basic Statistics table to JSON"
-authors = [
-    { name = "Linghao Song", email = "sxwcasd@gmail.com" }
-]
-
 readme = "README.md"
-requires-python = ">=3.11"
 license = { file = "LICENSE" }
-
+authors = [ { name = "Linghao Song", email = "sxwcasd@gmail.com" } ]
+requires-python = ">=3.11"
 classifiers = [
-    "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3 :: Only",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
-
-dynamic = ["version"]
-
+dynamic = [ "version" ]
 dependencies = [
-    "click",
+  "click",
 ]
-
-[project.optional-dependencies]
-build = [
-    "setuptools_scm",
-    "flit",
-    "twine",
+optional-dependencies.build = [
+  "flit",
+  "setuptools-scm",
+  "twine",
 ]
-
-dev = [
-    "black",
-    "detect-secrets==1.4.0",
-    "ruff",
-    "mypy",
-    "pre-commit>=2.9.0",
-    "tox",
+optional-dependencies.dev = [
+  "black",
+  "detect-secrets==1.4",
+  "mypy",
+  "pre-commit>=2.9",
+  "ruff",
+  "tox",
 ]
-
-test = [
-    "coverage[toml]",
-    "pytest",
+optional-dependencies.test = [
+  "coverage[toml]",
+  "pytest",
 ]
-
-type = [
-    "types-click",
+optional-dependencies.type = [
+  "types-click",
 ]
-
-[project.urls]
-homepage = "https://github.com/NCI-GDC/fastqc_to_json"
-
-[project.scripts]
-fastqc_to_json = "fastqc_to_json.__main__:main"
+urls.homepage = "https://github.com/NCI-GDC/fastqc_to_json"
+scripts.fastqc_to_json = "fastqc_to_json.__main__:main"
 
 [tool.setuptools_scm]
 write_to = "fastqc_to_json/_version.py"
@@ -62,30 +50,64 @@ local_scheme = "dirty-tag"
 version_scheme = "python-simplified-semver"
 fallback_version = "0"
 
-[tool.coverage.run]
-source = ["fastqc_to_json"]
-branch = true
-parallel = true
-
-[tool.coverage.report]
-show_missing = true
-
-[tool.flit.module]
-name = "fastqc_to_json"
-
-[tool.flit.sdist]
-include = [
-    "fastqc_to_json/_version.py",
+[tool.flit]
+module.name = "fastqc_to_json"
+sdist.include = [
+  "fastqc_to_json/_version.py",
+]
+sdist.exclude = [
+  ".*",
+  "dev-requirements.*",
+  "Dockerfile",
+  "Jenkinsfile",
+  "*travis.yml",
+  "tox.ini",
 ]
 
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+indent-width = 4
 exclude = [
-    ".*",
-    "dev-requirements.*",
-    "Dockerfile",
-    "Jenkinsfile",
-    "*travis.yml",
-    "tox.ini",
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".git-rewrite",
+  ".hg",
+  ".ipynb_checkpoints",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".pyenv",
+  ".pytest_cache",
+  ".pytype",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  ".vscode",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+  "site-packages",
+  "venv",
 ]
+format.indent-style = "space"
+format.quote-style = "double"
+format.line-ending = "auto"
+format.skip-magic-trailing-comma = false
+format.docstring-code-line-length = "dynamic"
+format.docstring-code-format = false
+lint.select = [ "E4", "E7", "E9", "F" ]
+lint.ignore = [ "E501" ]
+lint.per-file-ignores."__init__.py" = [ "E402" ]
+lint.fixable = [ "ALL" ]
+lint.unfixable = []
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.mypy]
 python_version = "3.11"
@@ -93,55 +115,8 @@ disallow_untyped_defs = true
 warn_return_any = true
 warn_unused_configs = true
 
-[tool.ruff]
-exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".ipynb_checkpoints",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pyenv",
-    ".pytest_cache",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    ".vscode",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "site-packages",
-    "venv",
-]
-
-line-length = 88
-indent-width = 4
-target-version = "py311"
-
-[tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
-ignore = ["E501"]
-fixable = ["ALL"]
-unfixable = []
-
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["E402"]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
-docstring-code-format = false
-docstring-code-line-length = "dynamic"
+[tool.coverage]
+run.branch = true
+run.parallel = true
+run.source = [ "fastqc_to_json" ]
+report.show_missing = true
