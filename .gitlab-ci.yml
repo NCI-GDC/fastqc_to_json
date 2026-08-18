@@ -13,6 +13,8 @@ include:
     python_version: "3.11"
     image_version: "4.4.1"
 
+- component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-build@feat/components
+
 - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-release@feat/components
 
 - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-release-latest@feat/components
@@ -26,19 +28,3 @@ stages:
 
 tox:
   image: docker.osdc.io/ncigdc/amzn2023-builder:4.4.1
-
-variables:
-  DOCKER_VERSION: "27.4.0"
-
-build_dockers:
-  stage: build
-  image: docker.osdc.io/docker:28.5.1-dind
-  services:
-  - docker:${DOCKER_VERSION}-dind
-  tags:
-  - dind
-  before_script:
-  - docker info
-  - apk add --no-cache bash git just
-  script:
-  - just docker-build
