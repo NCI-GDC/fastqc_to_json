@@ -1,32 +1,36 @@
-ARG REGISTRY=docker.osdc.io/ncigdc
+kARG REGISTRY=docker.osdc.io/ncigdc
 ARG BASE_CONTAINER_VERSION=4.4.1
 
-FROM ${REGISTRY}/amzn2023-builder:${BASE_CONTAINER_VERSION}
+FROM ${REGISTRY}/python3.11-builder:${BASE_CONTAINER_VERSION} AS builder
 
-ENV UV_PYTHON=3.11
+RUN dnf update --refresh -y && \
+    dnf install -y clang boost boost-devel gcc-c++ git make
 
-USER app
+COPY ./ /fastqc_to_json
 
-WORKDIR /app
-ENV UV_CACHE_DIR=/app/.cache/uv
+WORKDIR /fastqc_to_json
 
-RUN --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --no-install-project --no-dev --active --no-binary
+RUN if command -v uv >/dev/null 2>&1; then true; else pip install uv; fi && \
+    uv tool run --with tox-uv tox -e build
 
-COPY . /app
-
-RUN uv sync --no-dev --active --no-binary
+FROM ${REGISTRY}/python3.11:${BASE_CONTAINER_VERSION}
 
 LABEL org.opencontainers.image.title="fastqc_to_json" \
       org.opencontainers.image.description="fastqc_to_json" \
       org.opencontainers.image.source="https://github.com/NCI-GDC/fastqc_to_json" \
       org.opencontainers.image.vendor="NCI GDC"
 
-ENV PATH="/app/.venv/bin:$PATH"
+COPY --from=builder /fastqc_to_json/dist/*.whl /fastqc_to_json/
+COPY requirements.txt /fastqc_to_json/
 
-RUN fastqc_to_json --help
+WORKDIR /fastqc_to_json
 
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+RUN pip install --no-deps -r requirements.txt && \
+    pip install --no-deps *.whl && \
+    rm -f *.whl requirements.txt
 
-CMD ["fastqc_to_json", "--help"]
+USER app
+
+ENTRYPOINT ["fastqc_to_json"]
+
+CMD ["--help"]

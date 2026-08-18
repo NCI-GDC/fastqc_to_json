@@ -1,14 +1,6 @@
 build:
 	tox -e build
 
-docker-build:
-	docker build \
-		--progress=plain \
-		--build-arg BASE_CONTAINER_VERSION=4.4.1 \
-		--build-arg REGISTRY=docker.osdc.io/ncigdc \
-		-t "dev-containers.osdc.io/ncigdc/fastqc_to_json:$(git rev-parse --short HEAD)" \
-		.
-
 clean: clean-dirs
 
 clean-dirs:
