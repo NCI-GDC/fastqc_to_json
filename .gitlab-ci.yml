@@ -28,3 +28,6 @@ stages:
 
 tox:
   image: docker.osdc.io/ncigdc/amzn2023-builder:4.4.1
+
+docker-build:
+  image: docker.osdc.io/docker:28.5.1-dind
