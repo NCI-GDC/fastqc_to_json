@@ -1,33 +1,41 @@
 ARG REGISTRY=docker.osdc.io/ncigdc
 ARG BASE_CONTAINER_VERSION=4.4.1
 
-FROM ${REGISTRY}/amzn2023-builder:${BASE_CONTAINER_VERSION}
+FROM ${REGISTRY}/amzn2023-builder:${BASE_CONTAINER_VERSION} AS builder
 
 ENV UV_PYTHON=3.11
 
-USER app
+COPY ./ /fastqc_to_json
 
-WORKDIR /app
+WORKDIR /fastqc_to_json
 
-ENV UV_CACHE_DIR=/app/.cache/uv
+# Build the wheel through the existing tox build environment,
+# but use uv/tox-uv instead of installing tox with pip.
+RUN uv tool run --with tox-uv tox -e build
 
-RUN --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --no-install-project --no-dev --active --no-binary
 
-COPY . /app
-
-RUN uv sync --no-dev --active --no-binary
+FROM ${REGISTRY}/amzn2023-builder:${BASE_CONTAINER_VERSION}
 
 LABEL org.opencontainers.image.title="fastqc_to_json" \
-      org.opencontainers.image.description="Convert FastQC Basic Statistics table to JSON" \
+      org.opencontainers.image.description="fastqc_to_json" \
       org.opencontainers.image.source="https://github.com/NCI-GDC/fastqc_to_json" \
       org.opencontainers.image.vendor="NCI GDC"
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV UV_PYTHON=3.11
 
-RUN fastqc_to_json --help
+COPY --from=builder /fastqc_to_json/dist/*.whl /fastqc_to_json/
 
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+WORKDIR /fastqc_to_json
 
-CMD ["fastqc_to_json", "--help"]
+# Create the runtime venv and install the built wheel.
+RUN uv venv .venv && \
+    uv pip install --python .venv/bin/python --no-deps *.whl && \
+    rm -f *.whl
+
+ENV PATH="/fastqc_to_json/.venv/bin:$PATH"
+
+USER app
+
+ENTRYPOINT ["fastqc_to_json"]
+
+CMD ["--help"]
