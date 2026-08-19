@@ -18,17 +18,11 @@ include:
 
   - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-release-latest@feat/components
 
-
 stages:
   - test
   - build
   - release
   - tag
 
-
 tox:
   image: docker.osdc.io/ncigdc/amzn2023-builder:4.4.1
-
-
-docker-build:
-  image: docker.osdc.io/docker:28.5.1-dind
