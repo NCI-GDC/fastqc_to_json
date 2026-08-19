@@ -18,7 +18,7 @@ PROXY ?=
 
 .PHONY: version version-*
 version:
-	@python -m setuptools_scm
+	@uv run python -m setuptools_scm
 
 version-docker:
 	@echo ${DOCKER_IMAGE_DESCRIBE}
@@ -31,27 +31,29 @@ docker-login:
 venv:
 	@echo
 	rm -rf .venv/
-	tox -r -e dev --devenv .venv
+	uv venv .venv
+	uv pip install --python .venv/bin/python ".[dev,test]"
 
 .PHONY: init init-*
 init: init-pip init-hooks
+
 init-pip:
 	@echo
-	@echo -- Installing pip packages --
-	python -m pip install ".[dev,test]"
-	python -m pip install --no-deps -r requirements.txt -e .
+	@echo -- Installing packages with uv --
+	uv sync --all-extras
 
 init-hooks:
 	@echo
 	@echo -- Installing Precommit Hooks --
-	pre-commit install
+	uv run pre-commit install
 
 init-venv:
 	@echo
-	PIP_REQUIRE_VIRTUALENV=true python -m pip install --upgrade pip pip-tools
+	uv venv .venv
 
 .PHONY: clean clean-*
 clean: clean-dirs
+
 clean-dirs:
 	rm -rf ./build/
 	rm -rf ./dist/
@@ -65,7 +67,8 @@ clean-docker:
 
 .PHONY: requirements requirements-*
 requirements:
-	tox -e requirements
+	uv tool run --with tox-uv tox -e compile
+
 
 .PHONY: build build-*
 
@@ -79,13 +82,15 @@ build-docker: clean
 		--build-arg http_proxy="${PROXY}" \
 		--build-arg https_proxy="${PROXY}" \
 		--build-arg REGISTRY="${DOCKER_REGISTRY}" \
+		--build-arg BASE_CONTAINER_VERSION=4.4.1 \
 		-t "${DOCKER_IMAGE_COMMIT}" \
 		-t "${DOCKER_IMAGE_DESCRIBE}" \
 		-t "${REPO}"
 
 build-pypi: clean
 	@echo
-	tox -e check_dist
+	uv tool run --with tox-uv tox -e build
+
 
 .PHONY: run run-*
 run:
@@ -95,24 +100,29 @@ run-docker:
 	@echo
 	docker run --rm "${DOCKER_IMAGE_COMMIT}"
 
+
 .PHONY: lint test test-* tox
+
 test: tox
+
 lint:
 	@echo
 	@echo -- Lint --
-	tox -p -e flake8
+	uv tool run --with tox-uv tox -e ruff
 
 test-unit:
-	pytest tests/
+	uv run pytest tests/
 
 test-docker:
 	@echo
 
 tox:
 	@echo
-	TOX_PARALLEL_NO_SPINNER=1 tox -p --recreate
+	TOX_PARALLEL_NO_SPINNER=1 uv tool run --with tox-uv tox -p --recreate
+
 
 .PHONY: publish-*
+
 publish-docker:
 	docker push ${DOCKER_IMAGE_COMMIT}
 	docker push ${DOCKER_IMAGE_DESCRIBE}
@@ -120,4 +130,4 @@ publish-docker:
 publish-pypi:
 	@echo
 	@echo Publishing wheel
-	python3 -m twine upload dist/*
+	uv tool run --with tox-uv tox -e publish

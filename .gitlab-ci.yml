@@ -1,44 +1,28 @@
 include:
+  - component: $CI_SERVER_FQDN/nci-gdc/platform-engineering/generate-version/generate_version@0.4.2
+    inputs:
+      stage: tag
 
-- component: $CI_SERVER_FQDN/nci-gdc/platform-engineering/generate-version/generate_version@0.4.2
-  inputs:
-    stage: tag
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/workflow@feat/components
 
-- component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/workflow@feat/components
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/pre-commit@feat/components
 
-- component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/pre-commit@feat/components
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/tox@feat/components
+    inputs:
+      python_version: "3.12"
+      image_version: "4.4.1"
 
-- component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/tox@feat/components
-  inputs:
-    python_version: "3.11"
-    image_version: "4.4.1"
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-build@feat/components
 
-- component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-release@feat/components
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-release@feat/components
 
-- component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-release-latest@feat/components
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/docker-release-latest@feat/components
 
 stages:
-
-- test
-- build
-- release
-- tag
-
-variables:
-  DOCKER_VERSION: "27.4.0"
+  - test
+  - build
+  - release
+  - tag
 
 tox:
   image: docker.osdc.io/ncigdc/amzn2023-builder:4.4.1
-
-build_dockers:
-  stage: build
-  image: docker.osdc.io/docker:28.5.1-dind
-  services:
-  - docker:${DOCKER_VERSION}-dind
-  tags:
-  - dind
-  before_script:
-  - docker info
-  - apk add --no-cache bash git just
-  script:
-  - just docker-build
