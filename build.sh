@@ -29,7 +29,7 @@ TAG_VERSIONS=("${CURRENT_VERSION}" "${GIT_SHORT_HASH}")
 
 # Initialize Registry array
 REGISTRIES=()
-if [ "$BRANCH" = "$CI_DEFAULT_BRANCH" ] || [ -n "${SCM_TAG:-}" ]; then
+if [ "$BRANCH" = "$CI_DEFAULT_BRANCH" ] || [ -n "$SCM_TAG" ]; then
 	# Which internal registry to push the images to.
 	REGISTRIES+=("containers.osdc.io" "quay.io")
 
@@ -54,55 +54,46 @@ function populate_image_tags() {
 
 set -e
 
-#
-# fastqc_to_json has its Dockerfile at the repository root.
-#
-if [ -f "${BUILD_ROOT_DIR}/Dockerfile" ]; then
-	directory="fastqc_to_json"
+directory="fastqc_to_json"
 
-	cd "$BUILD_ROOT_DIR"
+cd "$BUILD_ROOT_DIR"
 
-	echo "Building ${directory} ..."
-	docker buildx build --compress --progress plain --load \
-		-t "build-${directory}:${CURRENT_VERSION}" \
-		-f Dockerfile . \
-		--build-arg CURRENT_VERSION="${CURRENT_VERSION}" \
-		--build-arg REGISTRY="${BASE_CONTAINER_REGISTRY}/ncigdc" \
-		--build-arg BASE_CONTAINER_VERSION="4" \
-		--label org.opencontainers.image.version="${CURRENT_VERSION}" \
-		--label org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-		--label org.opencontainers.image.revision="$(git rev-parse --short HEAD)" \
-		--label org.opencontainers.ref.name="${directory}:${CURRENT_VERSION}" \
-		--build-arg http_proxy="${PROXY}" \
-		--build-arg https_proxy="${PROXY}"
+echo "Building ${directory} ..."
+docker buildx build --compress --progress plain \
+	-t "build-${directory}:${CURRENT_VERSION}" \
+	-f Dockerfile . \
+	--build-arg CURRENT_VERSION="${CURRENT_VERSION}" \
+	--build-arg REGISTRY="${BASE_CONTAINER_REGISTRY}/ncigdc" \
+	--build-arg BASE_CONTAINER_VERSION="4" \
+	--label org.opencontainers.image.version="${CURRENT_VERSION}" \
+	--label org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+	--label org.opencontainers.image.revision="$(git rev-parse --short HEAD)" \
+	--label org.opencontainers.ref.name="${directory}:${CURRENT_VERSION}" \
+	--build-arg http_proxy="${PROXY}" \
+	--build-arg https_proxy="${PROXY}"
 
-	# Assign the final tags now.
-	populate_image_tags "${directory}"
-	for TAG in "${IMAGE_TAGS[@]}"; do
-		docker tag "build-${directory}:${CURRENT_VERSION}" "$TAG"
-	done
+# Assign the final tags.
+populate_image_tags "${directory}"
+for TAG in "${IMAGE_TAGS[@]}"; do
+	docker tag "build-${directory}:${CURRENT_VERSION}" "$TAG"
+done
 
-	docker rmi "build-${directory}:${CURRENT_VERSION}"
-fi
+docker rmi "build-${directory}:${CURRENT_VERSION}"
 
 echo "Successfully built all containers!"
 
 cd "$BUILD_ROOT_DIR"
 
-if [[ -n "${GITLAB_CI:-}" ]]; then
+if [[ -n "$GITLAB_CI" ]]; then
 	# Only publish on CI
-	if [ -f "${BUILD_ROOT_DIR}/Dockerfile" ]; then
-		directory="fastqc_to_json"
+	echo "Pushing and cleaning up."
 
-		echo "Pushing and cleaning up."
-
-		populate_image_tags "${directory}"
-		for TAG in "${IMAGE_TAGS[@]}"; do
-			docker push "${TAG}"
-			docker rmi "${TAG}"
-			echo "${TAG} is all set"
-		done
-	fi
+	populate_image_tags "${directory}"
+	for TAG in "${IMAGE_TAGS[@]}"; do
+		docker push "${TAG}"
+		docker rmi "${TAG}"
+		echo "${TAG} is all set"
+	done
 fi
 
 echo "All done!"

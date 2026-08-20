@@ -1,7 +1,11 @@
 include:
   - component: $CI_SERVER_FQDN/nci-gdc/platform-engineering/generate-version/generate_version@0.4.2
     inputs:
-      stage: release
+      stage: tag
+
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/workflow@feat/components
+
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/pre-commit@feat/components
 
   - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/tox@feat/components
     inputs:
@@ -11,29 +15,25 @@ include:
 stages:
   - test
   - build
-  - release
+  - tag
 
 tox:
   image: docker.osdc.io/ncigdc/amzn2023-builder:4.4.1
 
-build_docker:
+build_dockers:
   stage: build
-
-  image: docker.osdc.io/docker:28.5.1-dind
-
   services:
-    - docker:27.5.1-dind
-
+    - docker:${DOCKER_VERSION}-dind
   tags:
     - dind
+  image: docker.osdc.io/docker:28.5.1-dind
 
   before_script:
     - docker info
-    - apk add --no-cache bash git
+    - apk add --no-cache bash moreutils git go curl just
+
+  variables:
+    BASE_CONTAINER_REGISTRY: "docker.osdc.io"
 
   script:
-    - bash build.sh
-
-  rules:
-    - if: $CI_COMMIT_BRANCH
-    - if: $CI_COMMIT_TAG
+    - /bin/bash build.sh -b "$CI_COMMIT_BRANCH" -n "$CI_COMMIT_SHORT_SHA"
