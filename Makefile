@@ -18,38 +18,38 @@ PROXY ?=
 
 .PHONY: version version-*
 version:
-	@uv run python -m setuptools_scm
+	@python -m setuptools_scm
 
 version-docker:
 	@echo ${DOCKER_IMAGE_DESCRIBE}
+
 
 .PHONY: docker-login
 docker-login:
 	docker login -u="${QUAY_USERNAME}" -p="${QUAY_PASSWORD}" quay.io
 
+
 .PHONY: venv
 venv:
 	@echo
 	rm -rf .venv/
-	uv venv .venv
-	uv pip install --python .venv/bin/python ".[dev,test]"
+	uv venv
+	uv pip install ".[dev,test]"
+
 
 .PHONY: init init-*
 init: init-pip init-hooks
 
 init-pip:
 	@echo
-	@echo -- Installing packages with uv --
-	uv sync --all-extras
+	@echo -- Installing packages --
+	uv pip install ".[dev,test]"
 
 init-hooks:
 	@echo
 	@echo -- Installing Precommit Hooks --
-	uv run pre-commit install
+	pre-commit install
 
-init-venv:
-	@echo
-	uv venv .venv
 
 .PHONY: clean clean-*
 clean: clean-dirs
@@ -82,7 +82,6 @@ build-docker: clean
 		--build-arg http_proxy="${PROXY}" \
 		--build-arg https_proxy="${PROXY}" \
 		--build-arg REGISTRY="${DOCKER_REGISTRY}" \
-		--build-arg BASE_CONTAINER_VERSION=4.4.1 \
 		-t "${DOCKER_IMAGE_COMMIT}" \
 		-t "${DOCKER_IMAGE_DESCRIBE}" \
 		-t "${REPO}"
@@ -102,7 +101,6 @@ run-docker:
 
 
 .PHONY: lint test test-* tox
-
 test: tox
 
 lint:
@@ -122,7 +120,6 @@ tox:
 
 
 .PHONY: publish-*
-
 publish-docker:
 	docker push ${DOCKER_IMAGE_COMMIT}
 	docker push ${DOCKER_IMAGE_DESCRIBE}

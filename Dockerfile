@@ -1,36 +1,33 @@
 ARG REGISTRY=docker.osdc.io/ncigdc
-ARG BASE_CONTAINER_VERSION=4.4.1
-
-FROM ${REGISTRY}/amzn2023-builder:${BASE_CONTAINER_VERSION} AS builder
-
-ENV UV_PYTHON=3.11
-
-COPY ./ /fastqc_to_json
-WORKDIR /fastqc_to_json
-
-RUN uv tool run --with tox-uv tox -e build
-
+ARG BASE_CONTAINER_VERSION=4
 
 FROM ${REGISTRY}/amzn2023-builder:${BASE_CONTAINER_VERSION}
 
-LABEL org.opencontainers.image.title="fastqc_to_json" \
-      org.opencontainers.image.description="fastqc_to_json" \
-      org.opencontainers.image.source="https://github.com/NCI-GDC/fastqc_to_json" \
-      org.opencontainers.image.vendor="NCI GDC"
-
-ENV UV_PYTHON=3.11
-
-COPY --from=builder /fastqc_to_json/dist/*.whl /fastqc_to_json/
-
-WORKDIR /fastqc_to_json
-
-RUN uv venv .venv && \
-    uv pip install --python .venv/bin/python --no-deps *.whl && \
-    rm -f *.whl
-
-ENV PATH="/fastqc_to_json/.venv/bin:$PATH"
+ENV UV_PYTHON=3.12
 
 USER app
 
+WORKDIR /app
+
+ENV UV_CACHE_DIR=/app/.cache/uv
+
+RUN --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --no-install-project --no-dev --active --no-binary
+
+COPY . /app
+
+RUN uv sync --no-dev --active --no-binary
+
+LABEL org.opencontainers.image.title="fastqc_to_json" \
+      org.opencontainers.image.description="Convert FastQC Basic Statistics table to JSON" \
+      org.opencontainers.image.source="https://github.com/NCI-GDC/fastqc_to_json" \
+      org.opencontainers.image.vendor="NCI GDC"
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+RUN fastqc_to_json --help
+
 ENTRYPOINT ["fastqc_to_json"]
+
 CMD ["--help"]

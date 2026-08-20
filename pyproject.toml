@@ -7,12 +7,10 @@ name = "fastqc-to-json"
 description = "Convert FastQC Basic Statistics table to JSON"
 readme = "README.md"
 license = { file = "LICENSE" }
-authors = [ { name = "Linghao Song", email = "sxwcasd@gmail.com" } ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
@@ -21,28 +19,34 @@ dynamic = [ "version" ]
 dependencies = [
   "click",
 ]
-optional-dependencies.build = [
+[[project.authors]]
+name = "Linghao Song"
+email = "sxwcasd@gmail.com"
+[project.optional-dependencies]
+build = [
   "flit",
   "setuptools-scm",
   "twine",
 ]
-optional-dependencies.dev = [
+dev = [
   "black",
-  "detect-secrets==1.4",
+  "detect-secrets==1.5",
   "mypy",
   "pre-commit>=2.9",
   "ruff",
-  "tox",
+  "tox-uv",
 ]
-optional-dependencies.test = [
+test = [
   "coverage[toml]",
   "pytest",
 ]
-optional-dependencies.type = [
+type = [
   "types-click",
 ]
-urls.homepage = "https://github.com/NCI-GDC/fastqc_to_json"
-scripts.fastqc_to_json = "fastqc_to_json.__main__:main"
+[project.scripts]
+fastqc_to_json = "fastqc_to_json.__main__:main"
+[project.urls]
+homepage = "https://github.com/NCI-GDC/fastqc_to_json"
 
 [tool.setuptools_scm]
 write_to = "fastqc_to_json/_version.py"
@@ -50,12 +54,13 @@ local_scheme = "dirty-tag"
 version_scheme = "python-simplified-semver"
 fallback_version = "0"
 
-[tool.flit]
-module.name = "fastqc_to_json"
-sdist.include = [
+[tool.flit.module]
+name = "fastqc_to_json"
+[tool.flit.sdist]
+include = [
   "fastqc_to_json/_version.py",
 ]
-sdist.exclude = [
+exclude = [
   ".*",
   "dev-requirements.*",
   "Dockerfile",
@@ -64,8 +69,12 @@ sdist.exclude = [
   "tox.ini",
 ]
 
+[tool.uv.pip]
+emit-index-url = true
+output-file = "requirements.txt"
+
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 88
 indent-width = 4
 exclude = [
@@ -96,27 +105,33 @@ exclude = [
   "site-packages",
   "venv",
 ]
-format.indent-style = "space"
-format.quote-style = "double"
-format.line-ending = "auto"
-format.skip-magic-trailing-comma = false
-format.docstring-code-line-length = "dynamic"
-format.docstring-code-format = false
-lint.select = [ "E4", "E7", "E9", "F" ]
-lint.ignore = [ "E501" ]
-lint.per-file-ignores."__init__.py" = [ "E402" ]
-lint.fixable = [ "ALL" ]
-lint.unfixable = []
-lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "double"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+docstring-code-line-length = "dynamic"
+docstring-code-format = false
+[tool.ruff.lint]
+select = [ "E4", "E7", "E9", "F" ]
+ignore = [ "E501" ]
+per-file-ignores."__init__.py" = [ "E402" ]
+fixable = [ "ALL" ]
+unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.pyproject-fmt]
+table_format = "long"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 disallow_untyped_defs = true
 warn_return_any = true
 warn_unused_configs = true
 
-[tool.coverage]
-run.branch = true
-run.parallel = true
-run.source = [ "fastqc_to_json" ]
-report.show_missing = true
+[tool.coverage.report]
+show_missing = true
+[tool.coverage.run]
+source = [ "fastqc_to_json" ]
+branch = true
+parallel = true

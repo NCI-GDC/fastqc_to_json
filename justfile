@@ -1,5 +1,5 @@
 build:
-	uv tool run --with tox-uv tox -e build
+	tox -e build
 
 clean: clean-dirs
 
@@ -30,14 +30,14 @@ venv:
 	uv venv
 
 compile-requirements:
-	uv tool run --with tox-uv tox -e compile
+	tox -e compile
 
 tox:
 	@echo
 	TOX_PARALLEL_NO_SPINNER=1 uv tool run --with tox-uv tox -p --recreate
 
 upload:
-	uv tool run --with tox-uv tox -e publish
+	tox -e publish
 
 version:
-	uv tool run --with tox-uv tox -e version
+	tox -e version
