@@ -1,16 +1,41 @@
----
 include:
-  - project: nci-gdc/gitlab-templates
-    ref: master
-    file:
-      - templates/global/full.yaml
-      - templates/python/full.yaml
+  - component: $CI_SERVER_FQDN/nci-gdc/platform-engineering/generate-version/generate_version@0.4.2
+    inputs:
+      stage: tag
 
-variables:
-  BUILD_PY_VERSION: python3.11
-  RELEASE_PY_VERSION: python3.11
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/workflow@feat/components
 
-.parallel:
-  parallel:
-    matrix:
-      - BUILD_PY_VERSION: [python3.11]
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/pre-commit@feat/components
+
+  - component: $CI_SERVER_FQDN/nci-gdc/gitlab-templates/tox@feat/components
+    inputs:
+      python_version: "3.12"
+      image_version: "4.4.1"
+
+stages:
+  - test
+  - build
+  - tag
+
+tox:
+  image: docker.osdc.io/ncigdc/amzn2023-builder:4.4.1
+
+build_dockers:
+  stage: build
+
+  image: docker.osdc.io/docker:28.5.1-dind
+
+  services:
+    - docker:24.0.7-dind
+
+  tags:
+    - dind
+
+  variables:
+    BASE_CONTAINER_REGISTRY: "docker.osdc.io"
+
+  before_script:
+    - apk add --no-cache bash moreutils git go curl just
+
+  script:
+    - /bin/bash build.sh -b "$CI_COMMIT_BRANCH" -n "$CI_COMMIT_SHORT_SHA"

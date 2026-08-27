@@ -23,35 +23,37 @@ version:
 version-docker:
 	@echo ${DOCKER_IMAGE_DESCRIBE}
 
+
 .PHONY: docker-login
 docker-login:
 	docker login -u="${QUAY_USERNAME}" -p="${QUAY_PASSWORD}" quay.io
+
 
 .PHONY: venv
 venv:
 	@echo
 	rm -rf .venv/
-	tox -r -e dev --devenv .venv
+	uv venv
+	uv pip install ".[dev,test]"
+
 
 .PHONY: init init-*
 init: init-pip init-hooks
+
 init-pip:
 	@echo
-	@echo -- Installing pip packages --
-	python -m pip install ".[dev,test]"
-	python -m pip install --no-deps -r requirements.txt -e .
+	@echo -- Installing packages --
+	uv pip install ".[dev,test]"
 
 init-hooks:
 	@echo
 	@echo -- Installing Precommit Hooks --
 	pre-commit install
 
-init-venv:
-	@echo
-	PIP_REQUIRE_VIRTUALENV=true python -m pip install --upgrade pip pip-tools
 
 .PHONY: clean clean-*
 clean: clean-dirs
+
 clean-dirs:
 	rm -rf ./build/
 	rm -rf ./dist/
@@ -65,7 +67,8 @@ clean-docker:
 
 .PHONY: requirements requirements-*
 requirements:
-	tox -e requirements
+	uv tool run --with tox-uv tox -e compile
+
 
 .PHONY: build build-*
 
@@ -85,7 +88,8 @@ build-docker: clean
 
 build-pypi: clean
 	@echo
-	tox -e check_dist
+	uv tool run --with tox-uv tox -e build
+
 
 .PHONY: run run-*
 run:
@@ -95,22 +99,25 @@ run-docker:
 	@echo
 	docker run --rm "${DOCKER_IMAGE_COMMIT}"
 
+
 .PHONY: lint test test-* tox
 test: tox
+
 lint:
 	@echo
 	@echo -- Lint --
-	tox -p -e flake8
+	uv tool run --with tox-uv tox -e ruff
 
 test-unit:
-	pytest tests/
+	uv run pytest tests/
 
 test-docker:
 	@echo
 
 tox:
 	@echo
-	TOX_PARALLEL_NO_SPINNER=1 tox -p --recreate
+	TOX_PARALLEL_NO_SPINNER=1 uv tool run --with tox-uv tox -p --recreate
+
 
 .PHONY: publish-*
 publish-docker:
@@ -120,4 +127,4 @@ publish-docker:
 publish-pypi:
 	@echo
 	@echo Publishing wheel
-	python3 -m twine upload dist/*
+	uv tool run --with tox-uv tox -e publish
